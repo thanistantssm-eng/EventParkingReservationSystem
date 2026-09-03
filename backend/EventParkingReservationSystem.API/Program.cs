@@ -1,20 +1,20 @@
+using EventParkingReservationSystem.API.Extensions;
+using EventParkingReservationSystem.API.Middleware;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen();
 
-// Frontend applications will be developed separately.
-// During development, replace AllowAnyOrigin with the exact Angular URLs if required.
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("FrontendPolicy", policy =>
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod());
-});
+builder.Services.AddMember1Services(
+    builder.Configuration);
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -23,15 +23,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("FrontendPolicy");
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
 
-app.MapGet("/api/health", () => Results.Ok(new
-{
-    status = "ok",
-    service = "EventParkingReservationSystem.API"
-}));
+app.UseCors("AngularClient");
+
+app.UseAuthentication();
+
+app.UseAuthorization();
+
+app.MapControllers();
 
 app.Run();
