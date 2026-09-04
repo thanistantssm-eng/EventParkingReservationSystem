@@ -2,8 +2,11 @@ using System.Text;
 using EventParkingReservationSystem.API.Data;
 using EventParkingReservationSystem.API.Interfaces.Repositories.Core;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
+using EventParkingReservationSystem.API.Interfaces.Transactions;
+using EventParkingReservationSystem.API.Middleware;
 using EventParkingReservationSystem.API.Repositories.Core;
 using EventParkingReservationSystem.API.Services.Core;
+using EventParkingReservationSystem.API.Services.Transactions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -129,6 +132,13 @@ builder.Services.AddScoped<
     IOrganizerService,
     OrganizerService>();
 
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IQrCodeService, QrCodeService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+
 
 // ============================================
 // JWT AUTHENTICATION
@@ -226,6 +236,8 @@ builder.Services.AddCors(
 var app =
     builder.Build();
 
+app.UseMiddleware<ApiExceptionMiddleware>();
+
 
 // ============================================
 // HTTP PIPELINE
@@ -274,3 +286,5 @@ app.MapGet(
 
 
 app.Run();
+
+public partial class Program;

@@ -1,4 +1,5 @@
 ﻿using EventParkingReservationSystem.API.Models.Core;
+using EventParkingReservationSystem.API.Models.Transactions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventParkingReservationSystem.API.Data;
@@ -21,6 +22,19 @@ public class AppDbContext
 
     public DbSet<LoginOtp> LoginOtps =>
         Set<LoginOtp>();
+
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Event> Events => Set<Event>();
+    public DbSet<Seat> Seats => Set<Seat>();
+    public DbSet<ParkingSlot> ParkingSlots => Set<ParkingSlot>();
+    public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<BookingTicket> BookingTickets => Set<BookingTicket>();
+    public DbSet<BookingSeat> BookingSeats => Set<BookingSeat>();
+    public DbSet<BookingParking> BookingParkings => Set<BookingParking>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<OtpVerification> OtpVerifications => Set<OtpVerification>();
+    public DbSet<QrCode> QrCodes => Set<QrCode>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
 
     protected override void OnModelCreating(
@@ -149,5 +163,31 @@ public class AppDbContext
                     .OnDelete(
                         DeleteBehavior.Cascade);
             });
+
+        modelBuilder.Entity<Customer>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<Event>().Property(x => x.TicketPrice).HasPrecision(18, 2);
+        modelBuilder.Entity<Event>().Property(x => x.ParkingFee).HasPrecision(18, 2);
+        modelBuilder.Entity<Seat>().HasIndex(x => new { x.EventId, x.SeatNumber }).IsUnique();
+        modelBuilder.Entity<ParkingSlot>().HasIndex(x => new { x.EventId, x.SlotNumber }).IsUnique();
+        modelBuilder.Entity<Booking>().HasIndex(x => x.BookingNumber).IsUnique();
+        modelBuilder.Entity<Booking>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<Booking>().Property(x => x.TotalAmount).HasPrecision(18, 2);
+        modelBuilder.Entity<BookingSeat>().HasIndex(x => x.SeatId).IsUnique();
+        modelBuilder.Entity<BookingParking>().HasIndex(x => x.ParkingSlotId).IsUnique();
+        modelBuilder.Entity<BookingParking>().HasIndex(x => x.BookingId).IsUnique();
+        modelBuilder.Entity<BookingParking>().Property(x => x.Fee).HasPrecision(18, 2);
+        modelBuilder.Entity<Payment>().HasIndex(x => x.BookingId).IsUnique();
+        modelBuilder.Entity<Payment>().Property(x => x.Status).HasConversion<string>();
+        modelBuilder.Entity<Payment>().Property(x => x.Amount).HasPrecision(18, 2);
+        modelBuilder.Entity<OtpVerification>().HasIndex(x => x.PaymentId).IsUnique();
+        modelBuilder.Entity<QrCode>().HasIndex(x => x.BookingId).IsUnique();
+        modelBuilder.Entity<QrCode>().HasIndex(x => x.Token).IsUnique();
+        modelBuilder.Entity<Booking>().HasOne(x => x.Parking).WithOne(x => x.Booking)
+            .HasForeignKey<BookingParking>(x => x.BookingId);
+        modelBuilder.Entity<Booking>().HasOne(x => x.Payment).WithOne(x => x.Booking)
+            .HasForeignKey<Payment>(x => x.BookingId);
+        modelBuilder.Entity<Booking>().HasOne(x => x.QrCode).WithOne(x => x.Booking)
+            .HasForeignKey<QrCode>(x => x.BookingId);
+        modelBuilder.Entity<Booking>().HasQueryFilter(x => x.Status != BookingStatus.Cancelled);
     }
 }
