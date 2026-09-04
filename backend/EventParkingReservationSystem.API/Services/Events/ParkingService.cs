@@ -33,12 +33,32 @@ public class ParkingService(
         return list.Select(MapArea).ToList();
     }
 
+    public async Task<ParkingAreaDto> GetAreaByIdAsync(
+        int areaId,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _parking.GetAreaAsync(
+            areaId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Parking area not found.");
+
+        return MapArea(entity);
+    }
+
     public async Task<ParkingAreaDto> CreateAreaAsync(
         CreateParkingAreaDto dto,
         CancellationToken cancellationToken = default)
     {
+        ValidateParkingAreaDefinition(
+            dto.VenueId,
+            dto.Name,
+            dto.Capacity);
+
         if (_references is not null &&
-            !await _references.VenueExistsAsync(dto.VenueId, cancellationToken))
+            !await _references.VenueExistsAsync(
+                dto.VenueId,
+                cancellationToken))
         {
             throw new ArgumentException("Venue does not exist.");
         }
@@ -52,7 +72,7 @@ public class ParkingService(
                 cancellationToken))
         {
             throw new InvalidOperationException(
-                "A parking area with this name already exists for the venue.");
+                $"Parking area '{name}' already exists for this venue.");
         }
 
         var entity = new ParkingArea
@@ -77,18 +97,38 @@ public class ParkingService(
         UpdateParkingAreaDto dto,
         CancellationToken cancellationToken = default)
     {
+        ValidateParkingAreaDefinition(
+            dto.VenueId,
+            dto.Name,
+            dto.Capacity);
+
         var entity = await _parking.GetAreaAsync(
             areaId,
             true,
             cancellationToken)
             ?? throw new KeyNotFoundException("Parking area not found.");
 
-        await EnsureParkingAreaCanChangeAsync(areaId, cancellationToken);
+        await EnsureParkingAreaCanChangeAsync(
+            areaId,
+            cancellationToken);
 
         if (_references is not null &&
-            !await _references.VenueExistsAsync(dto.VenueId, cancellationToken))
+            !await _references.VenueExistsAsync(
+                dto.VenueId,
+                cancellationToken))
         {
             throw new ArgumentException("Venue does not exist.");
+        }
+
+        var activeSlotCount = await _parking.Slots()
+            .CountAsync(
+                x => x.ParkingAreaId == areaId && x.IsActive,
+                cancellationToken);
+
+        if (dto.Capacity < activeSlotCount)
+        {
+            throw new InvalidOperationException(
+                $"Parking area capacity cannot be reduced below its {activeSlotCount} active slot(s).");
         }
 
         var name = dto.Name.Trim();
@@ -100,7 +140,7 @@ public class ParkingService(
                 cancellationToken))
         {
             throw new InvalidOperationException(
-                "A parking area with this name already exists for the venue.");
+                $"Parking area '{name}' already exists for this venue.");
         }
 
         entity.VenueId = dto.VenueId;
@@ -137,16 +177,48 @@ public class ParkingService(
             .ToList();
     }
 
+    public async Task<ParkingSlotDto> GetSlotByIdAsync(
+        int slotId,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _parking.GetSlotAsync(
+            slotId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Parking slot not found.");
+
+        return MapSlot(
+            entity,
+            occupied: false,
+            parkingFee: 0m);
+    }
+
     public async Task<ParkingSlotDto> CreateSlotAsync(
         int areaId,
         CreateParkingSlotDto dto,
         CancellationToken cancellationToken = default)
     {
+        var slotNumber = ValidateAndNormalizeSlot(
+            dto.SlotNumber,
+            dto.SlotType);
+
         var area = await _parking.GetAreaAsync(
             areaId,
             false,
             cancellationToken)
             ?? throw new KeyNotFoundException("Parking area not found.");
+
+        if (!area.IsActive)
+        {
+            throw new InvalidOperationException(
+                "Cannot add a slot to an inactive parking area.");
+        }
+
+        if (area.Capacity <= 0)
+        {
+            throw new InvalidOperationException(
+                "Parking area capacity must be greater than zero.");
+        }
 
         var currentCount = await _parking.Slots()
             .CountAsync(
@@ -156,25 +228,23 @@ public class ParkingService(
         if (currentCount >= area.Capacity)
         {
             throw new InvalidOperationException(
-                "Parking area capacity has been reached.");
+                $"Parking area capacity of {area.Capacity} slot(s) has been reached.");
         }
-
-        var number = dto.SlotNumber.Trim();
 
         if (await _parking.SlotNumberExistsAsync(
                 areaId,
-                number,
+                slotNumber,
                 null,
                 cancellationToken))
         {
             throw new InvalidOperationException(
-                "This parking slot number already exists in the area.");
+                $"Parking slot '{slotNumber}' already exists in this area.");
         }
 
         var entity = new ParkingSlot
         {
             ParkingAreaId = areaId,
-            SlotNumber = number,
+            SlotNumber = slotNumber,
             SlotType = Normalize(dto.SlotType),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
@@ -192,6 +262,10 @@ public class ParkingService(
         UpdateParkingSlotDto dto,
         CancellationToken cancellationToken = default)
     {
+        var slotNumber = ValidateAndNormalizeSlot(
+            dto.SlotNumber,
+            dto.SlotType);
+
         var entity = await _parking.GetSlotAsync(
             slotId,
             true,
@@ -202,19 +276,45 @@ public class ParkingService(
             entity.ParkingAreaId,
             cancellationToken);
 
-        var number = dto.SlotNumber.Trim();
+        var area = await _parking.GetAreaAsync(
+            entity.ParkingAreaId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Parking area not found.");
+
+        if (dto.IsActive && !entity.IsActive)
+        {
+            if (!area.IsActive)
+            {
+                throw new InvalidOperationException(
+                    "Cannot activate a slot in an inactive parking area.");
+            }
+
+            var activeSlotCount = await _parking.Slots()
+                .CountAsync(
+                    x => x.ParkingAreaId == entity.ParkingAreaId &&
+                         x.IsActive &&
+                         x.Id != slotId,
+                    cancellationToken);
+
+            if (activeSlotCount >= area.Capacity)
+            {
+                throw new InvalidOperationException(
+                    $"Parking area capacity of {area.Capacity} slot(s) has been reached.");
+            }
+        }
 
         if (await _parking.SlotNumberExistsAsync(
                 entity.ParkingAreaId,
-                number,
+                slotNumber,
                 slotId,
                 cancellationToken))
         {
             throw new InvalidOperationException(
-                "This parking slot number already exists in the area.");
+                $"Parking slot '{slotNumber}' already exists in this area.");
         }
 
-        entity.SlotNumber = number;
+        entity.SlotNumber = slotNumber;
         entity.SlotType = Normalize(dto.SlotType);
         entity.IsActive = dto.IsActive;
         entity.UpdatedAt = DateTime.UtcNow;
@@ -304,6 +404,18 @@ public class ParkingService(
         string actorRole,
         CancellationToken cancellationToken = default)
     {
+        if (dto.AllocatedSlotCount < 0)
+        {
+            throw new ArgumentException(
+                "AllocatedSlotCount cannot be negative.");
+        }
+
+        if (dto.ParkingFee < 0)
+        {
+            throw new ArgumentException(
+                "Parking fee cannot be negative.");
+        }
+
         var evt = await GetEditableEventAsync(
             eventId,
             actorOrganizerId,
@@ -317,7 +429,16 @@ public class ParkingService(
             ?? throw new KeyNotFoundException("Parking area not found.");
 
         if (!area.IsActive)
-            throw new InvalidOperationException("Parking area is inactive.");
+        {
+            throw new InvalidOperationException(
+                "Parking area is inactive.");
+        }
+
+        if (area.Capacity <= 0)
+        {
+            throw new InvalidOperationException(
+                "Parking area capacity must be greater than zero.");
+        }
 
         if (area.VenueId != evt.VenueId)
         {
@@ -335,6 +456,12 @@ public class ParkingService(
                 "This parking area is already allocated to the event.");
         }
 
+        if (dto.AllocatedSlotCount > area.Capacity)
+        {
+            throw new ArgumentException(
+                $"AllocatedSlotCount cannot exceed parking area capacity ({area.Capacity}).");
+        }
+
         var activeSlots = await _parking.Slots()
             .CountAsync(
                 x => x.ParkingAreaId == area.Id && x.IsActive,
@@ -344,7 +471,7 @@ public class ParkingService(
             dto.AllocatedSlotCount > activeSlots)
         {
             throw new ArgumentException(
-                "AllocatedSlotCount cannot exceed the number of active slots in the parking area.");
+                $"AllocatedSlotCount cannot exceed the number of active parking slots ({activeSlots}).");
         }
 
         var allocation = new EventParkingAllocation
@@ -358,7 +485,9 @@ public class ParkingService(
             UpdatedAt = DateTime.UtcNow
         };
 
-        await _parking.AddAllocationAsync(allocation, cancellationToken);
+        await _parking.AddAllocationAsync(
+            allocation,
+            cancellationToken);
         await _parking.SaveChangesAsync(cancellationToken);
 
         allocation.ParkingArea = area;
@@ -510,6 +639,71 @@ public class ParkingService(
             "Parking layout is not public until the event is published.");
     }
 
+    private static void ValidateParkingAreaDefinition(
+        int venueId,
+        string? name,
+        int capacity)
+    {
+        if (venueId <= 0)
+        {
+            throw new ArgumentException(
+                "VenueId must be greater than zero.");
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException(
+                "Parking area name is required.");
+        }
+
+        if (name.Trim().Length > 120)
+        {
+            throw new ArgumentException(
+                "Parking area name cannot exceed 120 characters.");
+        }
+
+        if (capacity <= 0)
+        {
+            throw new ArgumentException(
+                "Parking area capacity must be greater than zero.");
+        }
+    }
+
+    private static string ValidateAndNormalizeSlot(
+        string? slotNumber,
+        string? slotType)
+    {
+        if (string.IsNullOrWhiteSpace(slotNumber))
+        {
+            throw new ArgumentException(
+                "Parking slot number is required.");
+        }
+
+        var normalized = slotNumber.Trim();
+
+        if (normalized.Length > 50)
+        {
+            throw new ArgumentException(
+                "Parking slot number cannot exceed 50 characters.");
+        }
+
+        if (normalized.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                "Parking slot number contains invalid control characters.");
+        }
+
+        var normalizedType = Normalize(slotType);
+
+        if (normalizedType is { Length: > 50 })
+        {
+            throw new ArgumentException(
+                "Parking slot type cannot exceed 50 characters.");
+        }
+
+        return normalized;
+    }
+
     private static ParkingAreaDto MapArea(ParkingArea x) => new()
     {
         Id = x.Id,
@@ -524,32 +718,34 @@ public class ParkingService(
         ParkingSlot x,
         bool occupied,
         decimal parkingFee) => new()
-    {
-        Id = x.Id,
-        ParkingAreaId = x.ParkingAreaId,
-        SlotNumber = x.SlotNumber,
-        SlotType = x.SlotType,
-        IsActive = x.IsActive,
-        Status = !x.IsActive
+        {
+            Id = x.Id,
+            ParkingAreaId = x.ParkingAreaId,
+            SlotNumber = x.SlotNumber,
+            SlotType = x.SlotType,
+            IsActive = x.IsActive,
+            Status = !x.IsActive
             ? "Disabled"
             : occupied
                 ? "Occupied"
                 : "Available",
-        ParkingFee = parkingFee
-    };
+            ParkingFee = parkingFee
+        };
 
     private static EventParkingAllocationDto MapAllocation(
         EventParkingAllocation x) => new()
-    {
-        Id = x.Id,
-        EventId = x.EventId,
-        ParkingAreaId = x.ParkingAreaId,
-        ParkingAreaName = x.ParkingArea?.Name,
-        AllocatedSlotCount = x.AllocatedSlotCount,
-        ParkingFee = x.ParkingFee,
-        IsActive = x.IsActive
-    };
+        {
+            Id = x.Id,
+            EventId = x.EventId,
+            ParkingAreaId = x.ParkingAreaId,
+            ParkingAreaName = x.ParkingArea?.Name,
+            AllocatedSlotCount = x.AllocatedSlotCount,
+            ParkingFee = x.ParkingFee,
+            IsActive = x.IsActive
+        };
 
     private static string? Normalize(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
 }
