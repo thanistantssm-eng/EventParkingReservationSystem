@@ -36,6 +36,29 @@ public class TicketService(
         return list.Select(Map).ToList();
     }
 
+    public async Task<TicketTypeDto> GetByIdAsync(
+        int ticketTypeId,
+        int? actorOrganizerId,
+        string? actorRole,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _tickets.GetByIdAsync(
+            ticketTypeId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Ticket type not found.");
+
+        var evt = await _events.GetByIdAsync(
+            entity.EventId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Event not found.");
+
+        EnsureCanViewEvent(evt, actorOrganizerId, actorRole);
+
+        return Map(entity);
+    }
+
     public async Task<TicketTypeDto> CreateAsync(
         int eventId,
         CreateTicketTypeDto dto,
@@ -49,7 +72,11 @@ public class TicketService(
             actorRole,
             cancellationToken);
 
-        ValidateQuantity(evt.EventType, dto.Quantity);
+        ValidateTicketDefinition(
+            dto.Name,
+            dto.Price,
+            dto.Quantity,
+            evt.EventType);
 
         var name = dto.Name.Trim();
 
@@ -100,7 +127,11 @@ public class TicketService(
             actorRole,
             cancellationToken);
 
-        ValidateQuantity(evt.EventType, dto.Quantity);
+        ValidateTicketDefinition(
+            dto.Name,
+            dto.Price,
+            dto.Quantity,
+            evt.EventType);
 
         var name = dto.Name.Trim();
 
@@ -219,16 +250,36 @@ public class TicketService(
             "Tickets are not public until the event is published.");
     }
 
-    private static void ValidateQuantity(EventType type, int quantity)
+    private static void ValidateTicketDefinition(
+        string? name,
+        decimal price,
+        int quantity,
+        EventType eventType)
     {
-        if (type == EventType.NonSeatBased && quantity <= 0)
+        if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException(
-                "NonSeatBased ticket quantity must be greater than zero.");
+                "Ticket type name is required.");
+        }
+
+        if (price < 0)
+        {
+            throw new ArgumentException(
+                "Ticket price cannot be negative.");
         }
 
         if (quantity < 0)
-            throw new ArgumentException("Ticket quantity cannot be negative.");
+        {
+            throw new ArgumentException(
+                "Ticket quantity cannot be negative.");
+        }
+
+        if (eventType == EventType.NonSeatBased &&
+            quantity == 0)
+        {
+            throw new ArgumentException(
+                "Non-seat based events require a ticket quantity greater than zero.");
+        }
     }
 
     private static TicketTypeDto Map(TicketType x) => new()
