@@ -30,7 +30,9 @@ public class SeatService(
 
         var bookedIds = _bookings is null
             ? new HashSet<int>()
-            : (await _bookings.GetBookedSeatIdsAsync(eventId, cancellationToken))
+            : (await _bookings.GetBookedSeatIdsAsync(
+                    eventId,
+                    cancellationToken))
                 .ToHashSet();
 
         var list = await _seats.Query()
@@ -46,6 +48,37 @@ public class SeatService(
             .ToList();
     }
 
+    public async Task<SeatDto> GetByIdAsync(
+        int seatId,
+        int? actorOrganizerId,
+        string? actorRole,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _seats.Query()
+            .Include(x => x.TicketType)
+            .FirstOrDefaultAsync(
+                x => x.Id == seatId,
+                cancellationToken)
+            ?? throw new KeyNotFoundException("Seat not found.");
+
+        var evt = await _events.GetByIdAsync(
+            entity.EventId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Event not found.");
+
+        EnsureCanViewEvent(evt, actorOrganizerId, actorRole);
+
+        var bookedIds = _bookings is null
+            ? new HashSet<int>()
+            : (await _bookings.GetBookedSeatIdsAsync(
+                    entity.EventId,
+                    cancellationToken))
+                .ToHashSet();
+
+        return Map(entity, evt.TicketPrice, bookedIds);
+    }
+
     public async Task<SeatDto> CreateAsync(
         int eventId,
         CreateSeatDto dto,
@@ -59,12 +92,16 @@ public class SeatService(
             actorRole,
             cancellationToken);
 
+        var seatNumber = ValidateAndNormalizeSeat(
+            dto.SeatNumber,
+            dto.RowLabel,
+            dto.ColumnNumber,
+            dto.PriceOverride);
+
         await ValidateTicketAsync(
             eventId,
             dto.TicketTypeId,
             cancellationToken);
-
-        var seatNumber = dto.SeatNumber.Trim();
 
         if (await _seats.SeatNumberExistsAsync(
                 eventId,
@@ -73,7 +110,7 @@ public class SeatService(
                 cancellationToken))
         {
             throw new InvalidOperationException(
-                "This seat number already exists for the event.");
+                $"Seat '{seatNumber}' already exists for this event.");
         }
 
         var entity = new Seat
@@ -111,8 +148,11 @@ public class SeatService(
         string actorRole,
         CancellationToken cancellationToken = default)
     {
-        if (dtos.Count == 0)
-            throw new ArgumentException("At least one seat is required.");
+        if (dtos is null || dtos.Count == 0)
+        {
+            throw new ArgumentException(
+                "At least one seat is required.");
+        }
 
         var evt = await GetEditableSeatEventAsync(
             eventId,
@@ -120,53 +160,80 @@ public class SeatService(
             actorRole,
             cancellationToken);
 
-        var normalizedNumbers = dtos
-            .Select(x => x.SeatNumber.Trim())
+        var prepared = dtos
+            .Select(dto => new PreparedSeat(
+                dto,
+                ValidateAndNormalizeSeat(
+                    dto.SeatNumber,
+                    dto.RowLabel,
+                    dto.ColumnNumber,
+                    dto.PriceOverride)))
             .ToList();
 
-        if (normalizedNumbers.Any(string.IsNullOrWhiteSpace) ||
-            normalizedNumbers
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count() != normalizedNumbers.Count)
+        var duplicateRequestNumbers = prepared
+            .GroupBy(
+                x => x.SeatNumber,
+                StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .OrderBy(x => x)
+            .ToList();
+
+        if (duplicateRequestNumbers.Count > 0)
         {
-            throw new ArgumentException(
-                "Seat numbers must be non-empty and unique within the request.");
+            throw new InvalidOperationException(
+                $"Duplicate seat numbers in request: {string.Join(", ", duplicateRequestNumbers)}.");
         }
 
-        foreach (var dto in dtos)
-        {
-            await ValidateTicketAsync(
-                eventId,
-                dto.TicketTypeId,
-                cancellationToken);
+        await ValidateTicketTypesAsync(
+            eventId,
+            prepared
+                .Where(x => x.Dto.TicketTypeId.HasValue)
+                .Select(x => x.Dto.TicketTypeId!.Value)
+                .Distinct()
+                .ToList(),
+            cancellationToken);
 
-            if (await _seats.SeatNumberExistsAsync(
-                    eventId,
-                    dto.SeatNumber.Trim(),
-                    null,
-                    cancellationToken))
-            {
-                throw new InvalidOperationException(
-                    $"Seat '{dto.SeatNumber}' already exists for this event.");
-            }
+        var existingSeatNumbers = await _seats.Query()
+            .Where(x => x.EventId == eventId)
+            .Select(x => x.SeatNumber)
+            .ToListAsync(cancellationToken);
+
+        var existingLookup = existingSeatNumbers
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var conflicts = prepared
+            .Where(x => existingLookup.Contains(x.SeatNumber))
+            .Select(x => x.SeatNumber)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+        if (conflicts.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"The following seats already exist for this event: {string.Join(", ", conflicts)}.");
         }
 
-        var created = new List<Seat>();
+        var now = DateTime.UtcNow;
+        var created = new List<Seat>(prepared.Count);
 
-        foreach (var dto in dtos)
+        foreach (var item in prepared)
         {
+            var dto = item.Dto;
+
             var entity = new Seat
             {
                 EventId = eventId,
                 TicketTypeId = dto.TicketTypeId,
-                SeatNumber = dto.SeatNumber.Trim(),
+                SeatNumber = item.SeatNumber,
                 RowLabel = Normalize(dto.RowLabel),
                 ColumnNumber = dto.ColumnNumber,
                 PriceOverride = dto.PriceOverride,
                 SetupStatus = SeatSetupStatus.Available,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = now,
+                UpdatedAt = now
             };
 
             await _seats.AddAsync(entity, cancellationToken);
@@ -190,14 +257,19 @@ public class SeatService(
         foreach (var seat in created)
         {
             if (seat.TicketTypeId.HasValue &&
-                tickets.TryGetValue(seat.TicketTypeId.Value, out var ticket))
+                tickets.TryGetValue(
+                    seat.TicketTypeId.Value,
+                    out var ticket))
             {
                 seat.TicketType = ticket;
             }
         }
 
         return created
-            .Select(x => Map(x, evt.TicketPrice, new HashSet<int>()))
+            .Select(x => Map(
+                x,
+                evt.TicketPrice,
+                new HashSet<int>()))
             .ToList();
     }
 
@@ -220,12 +292,16 @@ public class SeatService(
             actorRole,
             cancellationToken);
 
+        var seatNumber = ValidateAndNormalizeSeat(
+            dto.SeatNumber,
+            dto.RowLabel,
+            dto.ColumnNumber,
+            dto.PriceOverride);
+
         await ValidateTicketAsync(
             entity.EventId,
             dto.TicketTypeId,
             cancellationToken);
-
-        var seatNumber = dto.SeatNumber.Trim();
 
         if (await _seats.SeatNumberExistsAsync(
                 entity.EventId,
@@ -234,13 +310,14 @@ public class SeatService(
                 cancellationToken))
         {
             throw new InvalidOperationException(
-                "This seat number already exists for the event.");
+                $"Seat '{seatNumber}' already exists for this event.");
         }
 
         if (!Enum.TryParse<SeatSetupStatus>(
                 dto.SetupStatus,
                 true,
-                out var setupStatus))
+                out var setupStatus) ||
+            !Enum.IsDefined(setupStatus))
         {
             throw new ArgumentException(
                 "SetupStatus must be Available or Disabled.");
@@ -263,6 +340,10 @@ public class SeatService(
                 entity.TicketTypeId.Value,
                 false,
                 cancellationToken);
+        }
+        else
+        {
+            entity.TicketType = null;
         }
 
         return Map(entity, evt.TicketPrice, new HashSet<int>());
@@ -357,6 +438,93 @@ public class SeatService(
         }
     }
 
+    private async Task ValidateTicketTypesAsync(
+        int eventId,
+        IReadOnlyCollection<int> ticketTypeIds,
+        CancellationToken cancellationToken)
+    {
+        if (ticketTypeIds.Count == 0)
+            return;
+
+        var validIds = await _tickets.Query()
+            .Where(x =>
+                x.EventId == eventId &&
+                ticketTypeIds.Contains(x.Id))
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var validLookup = validIds.ToHashSet();
+
+        var invalidIds = ticketTypeIds
+            .Where(id => !validLookup.Contains(id))
+            .OrderBy(id => id)
+            .ToList();
+
+        if (invalidIds.Count > 0)
+        {
+            throw new ArgumentException(
+                $"TicketTypeId(s) {string.Join(", ", invalidIds)} do not belong to this event.");
+        }
+    }
+
+    private static string ValidateAndNormalizeSeat(
+        string? seatNumber,
+        string? rowLabel,
+        int? columnNumber,
+        decimal? priceOverride)
+    {
+        if (string.IsNullOrWhiteSpace(seatNumber))
+        {
+            throw new ArgumentException(
+                "Seat number is required.");
+        }
+
+        var normalizedSeatNumber = seatNumber.Trim();
+
+        if (normalizedSeatNumber.Length > 50)
+        {
+            throw new ArgumentException(
+                "Seat number cannot exceed 50 characters.");
+        }
+
+        if (normalizedSeatNumber.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                "Seat number contains invalid control characters.");
+        }
+
+        var normalizedRowLabel = Normalize(rowLabel);
+
+        if (normalizedRowLabel is { Length: > 20 })
+        {
+            throw new ArgumentException(
+                "Row label cannot exceed 20 characters.");
+        }
+
+        if (normalizedRowLabel is not null &&
+            normalizedRowLabel.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                "Row label contains invalid control characters.");
+        }
+
+        if (columnNumber.HasValue &&
+            columnNumber.Value <= 0)
+        {
+            throw new ArgumentException(
+                "Column number must be greater than zero when provided.");
+        }
+
+        if (priceOverride.HasValue &&
+            priceOverride.Value < 0)
+        {
+            throw new ArgumentException(
+                "Price override cannot be negative.");
+        }
+
+        return normalizedSeatNumber;
+    }
+
     private static void EnsureCanViewEvent(
         Event evt,
         int? actorOrganizerId,
@@ -384,15 +552,18 @@ public class SeatService(
         decimal eventTicketPrice,
         HashSet<int> bookedIds)
     {
-        var status = !x.IsActive || x.SetupStatus == SeatSetupStatus.Disabled
-            ? "Disabled"
-            : bookedIds.Contains(x.Id)
-                ? "Booked"
-                : "Available";
+        var status =
+            !x.IsActive ||
+            x.SetupStatus == SeatSetupStatus.Disabled
+                ? "Disabled"
+                : bookedIds.Contains(x.Id)
+                    ? "Booked"
+                    : "Available";
 
-        var price = x.PriceOverride
-                    ?? x.TicketType?.Price
-                    ?? eventTicketPrice;
+        var price =
+            x.PriceOverride ??
+            x.TicketType?.Price ??
+            eventTicketPrice;
 
         return new SeatDto
         {
@@ -411,5 +582,11 @@ public class SeatService(
     }
 
     private static string? Normalize(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
+
+    private sealed record PreparedSeat(
+        CreateSeatDto Dto,
+        string SeatNumber);
 }
