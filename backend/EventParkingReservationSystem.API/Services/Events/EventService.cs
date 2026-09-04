@@ -345,10 +345,10 @@ public class EventService(
         var entity = await _events.GetByIdAsync(id, true, cancellationToken)
             ?? throw new KeyNotFoundException("Event not found.");
 
-        if (entity.Status is not (EventStatus.Approved or EventStatus.Draft))
+        if (entity.Status != EventStatus.Approved)
         {
             throw new InvalidOperationException(
-                "Only Approved events or Admin-created Draft events can be published.");
+                "Only Approved events can be published.");
         }
 
         var activeTickets = await _tickets.Query()

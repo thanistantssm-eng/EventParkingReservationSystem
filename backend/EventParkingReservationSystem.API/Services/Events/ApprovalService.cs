@@ -25,8 +25,9 @@ public class ApprovalService(
         if (!EventService.IsAdmin(actorRole) && !(EventService.IsOrganizer(actorRole) && actorOrganizerId == entity.OrganizerId))
             throw new UnauthorizedAccessException("You can submit only your own event for approval.");
 
-        if (entity.Status is not (EventStatus.Draft or EventStatus.Rejected))
-            throw new InvalidOperationException("Only Draft or Rejected events can be submitted for approval.");
+        if (entity.Status != EventStatus.Draft)
+            throw new InvalidOperationException(
+                "Only Draft events can be submitted for approval. Rejected events must be edited and returned to Draft first.");
 
         if (await _approvals.GetPendingForEventAsync(eventId, cancellationToken) is not null)
             throw new InvalidOperationException("This event already has a pending approval request.");
@@ -73,33 +74,83 @@ public class ApprovalService(
         return list.Select(Map).ToList();
     }
 
-    public Task<EventApprovalDto> ApproveAsync(int approvalId, ReviewApprovalDto dto, int adminUserId, CancellationToken cancellationToken = default) =>
-        ReviewAsync(approvalId, dto, adminUserId, true, cancellationToken);
+    public Task<EventApprovalDto> ApproveAsync(
+        int approvalId,
+        ReviewApprovalDto dto,
+        int adminUserId,
+        string actorRole,
+        CancellationToken cancellationToken = default) =>
+        ReviewAsync(
+            approvalId,
+            dto,
+            adminUserId,
+            actorRole,
+            approve: true,
+            cancellationToken);
 
-    public Task<EventApprovalDto> RejectAsync(int approvalId, ReviewApprovalDto dto, int adminUserId, CancellationToken cancellationToken = default) =>
-        ReviewAsync(approvalId, dto, adminUserId, false, cancellationToken);
+    public Task<EventApprovalDto> RejectAsync(
+        int approvalId,
+        ReviewApprovalDto dto,
+        int adminUserId,
+        string actorRole,
+        CancellationToken cancellationToken = default) =>
+        ReviewAsync(
+            approvalId,
+            dto,
+            adminUserId,
+            actorRole,
+            approve: false,
+            cancellationToken);
 
-    private async Task<EventApprovalDto> ReviewAsync(int approvalId, ReviewApprovalDto dto, int adminUserId, bool approve, CancellationToken cancellationToken)
+    private async Task<EventApprovalDto> ReviewAsync(
+        int approvalId,
+        ReviewApprovalDto dto,
+        int adminUserId,
+        string actorRole,
+        bool approve,
+        CancellationToken cancellationToken)
     {
+        if (!EventService.IsAdmin(actorRole))
+        {
+            throw new UnauthorizedAccessException(
+                "Only Admin can approve or reject event approval requests.");
+        }
+
+        if (!approve && string.IsNullOrWhiteSpace(dto.Reason))
+        {
+            throw new ArgumentException(
+                "Rejection reason is required.");
+        }
+
         var approval = await _approvals.GetByIdAsync(approvalId, true, cancellationToken)
             ?? throw new KeyNotFoundException("Approval request not found.");
         if (approval.Status != ApprovalStatus.Pending)
-            throw new InvalidOperationException("This approval request has already been reviewed.");
+        {
+            throw new InvalidOperationException(
+                "Only Pending approval requests can be approved or rejected.");
+        }
 
         var evt = await _events.GetByIdAsync(approval.EventId, true, cancellationToken)
             ?? throw new KeyNotFoundException("Event not found.");
         if (evt.Status != EventStatus.PendingApproval)
             throw new InvalidOperationException("The event is no longer pending approval.");
 
-        approval.Status = approve ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
-        approval.ReviewedByUserId = adminUserId;
-        approval.ReviewedAt = DateTime.UtcNow;
-        approval.ReviewReason = Normalize(dto.Reason);
+        var normalizedReason = Normalize(dto.Reason);
+        var reviewedAt = DateTime.UtcNow;
 
-        evt.Status = approve ? EventStatus.Approved : EventStatus.Rejected;
-        evt.ApprovedAt = approve ? DateTime.UtcNow : null;
-        evt.RejectionReason = approve ? null : Normalize(dto.Reason) ?? "Rejected by administrator.";
-        evt.UpdatedAt = DateTime.UtcNow;
+        approval.Status = approve
+            ? ApprovalStatus.Approved
+            : ApprovalStatus.Rejected;
+        approval.ReviewedByUserId = adminUserId;
+        approval.ReviewedAt = reviewedAt;
+        approval.ReviewReason = normalizedReason;
+
+        evt.Status = approve
+            ? EventStatus.Approved
+            : EventStatus.Rejected;
+        evt.ApprovedAt = approve ? reviewedAt : null;
+        evt.RejectionReason = approve ? null : normalizedReason;
+        evt.UpdatedAt = reviewedAt;
 
         await _approvals.SaveChangesAsync(cancellationToken);
         return await GetDtoAsync(approvalId, cancellationToken);

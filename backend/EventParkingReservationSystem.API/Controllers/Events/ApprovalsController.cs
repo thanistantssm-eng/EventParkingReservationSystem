@@ -15,23 +15,68 @@ public class ApprovalsController(IApprovalService service) : ControllerBase
 
     [Authorize(Roles = "Admin,Organizer")]
     [HttpPost("events/{eventId:int}/submit")]
-    public async Task<ActionResult<EventApprovalDto>> Submit(int eventId, SubmitApprovalDto dto, CancellationToken cancellationToken) =>
-        Ok(await _service.SubmitAsync(eventId, dto, UserId(), OrganizerId(), Role(), cancellationToken));
+    [ProducesResponseType(typeof(EventApprovalDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EventApprovalDto>> Submit(
+        int eventId,
+        SubmitApprovalDto dto,
+        CancellationToken cancellationToken) =>
+        Ok(await _service.SubmitAsync(
+            eventId,
+            dto,
+            UserId(),
+            OrganizerId(),
+            Role(),
+            cancellationToken));
 
     [Authorize(Roles = "Admin")]
     [HttpGet("pending")]
+    [ProducesResponseType(typeof(IReadOnlyList<EventApprovalDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IReadOnlyList<EventApprovalDto>>> GetPending(CancellationToken cancellationToken) =>
         Ok(await _service.GetPendingAsync(cancellationToken));
 
     [Authorize(Roles = "Admin")]
     [HttpPut("{approvalId:int}/approve")]
-    public async Task<ActionResult<EventApprovalDto>> Approve(int approvalId, ReviewApprovalDto dto, CancellationToken cancellationToken) =>
-        Ok(await _service.ApproveAsync(approvalId, dto, UserId(), cancellationToken));
+    [ProducesResponseType(typeof(EventApprovalDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EventApprovalDto>> Approve(
+        int approvalId,
+        ReviewApprovalDto dto,
+        CancellationToken cancellationToken) =>
+        Ok(await _service.ApproveAsync(
+            approvalId,
+            dto,
+            UserId(),
+            Role(),
+            cancellationToken));
 
     [Authorize(Roles = "Admin")]
     [HttpPut("{approvalId:int}/reject")]
-    public async Task<ActionResult<EventApprovalDto>> Reject(int approvalId, ReviewApprovalDto dto, CancellationToken cancellationToken) =>
-        Ok(await _service.RejectAsync(approvalId, dto, UserId(), cancellationToken));
+    [ProducesResponseType(typeof(EventApprovalDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EventApprovalDto>> Reject(
+        int approvalId,
+        ReviewApprovalDto dto,
+        CancellationToken cancellationToken) =>
+        Ok(await _service.RejectAsync(
+            approvalId,
+            dto,
+            UserId(),
+            Role(),
+            cancellationToken));
 
     private int UserId()
     {

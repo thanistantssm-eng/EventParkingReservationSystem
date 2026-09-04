@@ -135,6 +135,11 @@ public class EventsController(IEventService service) : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpPost("{id:int}/publish")]
+    [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EventDto>> Publish(
         int id,
         CancellationToken cancellationToken) =>
