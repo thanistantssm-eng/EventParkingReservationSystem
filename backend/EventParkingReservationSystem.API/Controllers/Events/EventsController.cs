@@ -15,6 +15,7 @@ public class EventsController(IEventService service) : ControllerBase
     [AllowAnonymous]
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<EventDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<EventDto>>> GetAll(
         [FromQuery] EventQueryDto query,
         CancellationToken cancellationToken) =>
@@ -28,6 +29,7 @@ public class EventsController(IEventService service) : ControllerBase
     [AllowAnonymous]
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EventDto>> GetById(
         int id,
@@ -42,6 +44,8 @@ public class EventsController(IEventService service) : ControllerBase
     [AllowAnonymous]
     [HttpGet("qr/{qrCode}")]
     [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EventDto>> GetByQrCode(
         string qrCode,
@@ -58,6 +62,7 @@ public class EventsController(IEventService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EventDto>> Create(
         CreateEventDto dto,
         CancellationToken cancellationToken)
@@ -78,6 +83,10 @@ public class EventsController(IEventService service) : ControllerBase
     [Authorize(Roles = "Admin")]
     [HttpPost("admin/for-organizer/{organizerId:int}")]
     [ProducesResponseType(typeof(EventDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EventDto>> CreateForOrganizer(
         int organizerId,
         CreateEventDto dto,
@@ -102,7 +111,10 @@ public class EventsController(IEventService service) : ControllerBase
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EventDto>> Update(
         int id,
         UpdateEventDto dto,
@@ -118,6 +130,9 @@ public class EventsController(IEventService service) : ControllerBase
     [Authorize(Roles = "Admin,Organizer")]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         int id,
@@ -151,6 +166,11 @@ public class EventsController(IEventService service) : ControllerBase
 
     [Authorize(Roles = "Admin,Organizer")]
     [HttpPost("{id:int}/qr/regenerate")]
+    [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EventDto>> RegenerateQr(
         int id,
         CancellationToken cancellationToken) =>
