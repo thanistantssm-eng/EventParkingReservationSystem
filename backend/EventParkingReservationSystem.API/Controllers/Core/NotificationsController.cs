@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EventParkingReservationSystem.API.Controllers.Core;
 
 [ApiController]
-[Route("api/notifications")]
+[Route("api/user-notifications")]
 [Authorize]
 public class NotificationsController : ControllerBase
 {
