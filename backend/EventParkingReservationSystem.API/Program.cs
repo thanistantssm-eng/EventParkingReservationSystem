@@ -16,80 +16,21 @@ using EventParkingReservationSystem.API.Extensions;
 var builder =
     WebApplication.CreateBuilder(args);
 
-
-// ============================================
-// CONTROLLERS
-// ============================================
-
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
 
 
 // ============================================
-// SWAGGER + JWT AUTHORIZE BUTTON
-// ============================================
-
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition(
-        "Bearer",
-        new OpenApiSecurityScheme
-        {
-            Name = "Authorization",
-
-            Type =
-                SecuritySchemeType.Http,
-
-            Scheme = "bearer",
-
-            BearerFormat = "JWT",
-
-            In =
-                ParameterLocation.Header,
-
-            Description =
-                "Enter your JWT token."
-        });
-
-
-    options.AddSecurityRequirement(
-        new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference =
-                        new OpenApiReference
-                        {
-                            Type =
-                                ReferenceType
-                                    .SecurityScheme,
-
-                            Id =
-                                "Bearer"
-                        }
-                },
-
-                Array.Empty<string>()
-            }
-        });
-});
-
-
-// ============================================
 // DATABASE
 // ============================================
 
-builder.Services
-    .AddDbContext<AppDbContext>(
-        options =>
-        {
-            options.UseSqlServer(
-                builder.Configuration
-                    .GetConnectionString(
-                        "DefaultConnection"));
-        });
+builder.Services.AddDbContext<AppDbContext>(
+    options =>
+        options.UseSqlServer(
+            builder.Configuration
+                .GetConnectionString(
+                    "DefaultConnection")));
 
 
 // ============================================
@@ -133,6 +74,16 @@ builder.Services.AddScoped<
     IOrganizerService,
     OrganizerService>();
 
+<<<<<<< HEAD
+builder.Services.AddScoped<
+    IPropertyService,
+    PropertyService>();
+
+builder.Services.AddScoped<
+    IVenueService,
+    VenueService>();
+
+=======
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
@@ -140,6 +91,7 @@ builder.Services.AddScoped<IQrCodeService, QrCodeService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddEventServices();
+>>>>>>> origin/develop
 
 // ============================================
 // JWT AUTHENTICATION
@@ -148,32 +100,23 @@ builder.Services.AddEventServices();
 var jwtKey =
     builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException(
-        "JWT key is missing.");
+        "Jwt:Key configuration missing.");
 
+var issuer =
+    builder.Configuration["Jwt:Issuer"];
 
-var jwtIssuer =
-    builder.Configuration["Jwt:Issuer"]
-    ?? throw new InvalidOperationException(
-        "JWT issuer is missing.");
-
-
-var jwtAudience =
-    builder.Configuration["Jwt:Audience"]
-    ?? throw new InvalidOperationException(
-        "JWT audience is missing.");
-
+var audience =
+    builder.Configuration["Jwt:Audience"];
 
 builder.Services
     .AddAuthentication(
         options =>
         {
-            options
-                .DefaultAuthenticateScheme =
+            options.DefaultAuthenticateScheme =
                 JwtBearerDefaults
                     .AuthenticationScheme;
 
-            options
-                .DefaultChallengeScheme =
+            options.DefaultChallengeScheme =
                 JwtBearerDefaults
                     .AuthenticationScheme;
         })
@@ -183,34 +126,26 @@ builder.Services
             options.TokenValidationParameters =
                 new TokenValidationParameters
                 {
-                    ValidateIssuer =
-                        true,
+                    ValidateIssuer = true,
 
-                    ValidateAudience =
-                        true,
+                    ValidateAudience = true,
 
-                    ValidateLifetime =
-                        true,
+                    ValidateLifetime = true,
 
-                    ValidateIssuerSigningKey =
-                        true,
+                    ValidateIssuerSigningKey = true,
 
-                    ValidIssuer =
-                        jwtIssuer,
+                    ValidIssuer = issuer,
 
-                    ValidAudience =
-                        jwtAudience,
+                    ValidAudience = audience,
 
                     IssuerSigningKey =
                         new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes(
-                                jwtKey)),
+                            Encoding.UTF8
+                                .GetBytes(jwtKey)),
 
-                    ClockSkew =
-                        TimeSpan.Zero
+                    ClockSkew = TimeSpan.Zero
                 };
         });
-
 
 builder.Services.AddAuthorization();
 
@@ -234,14 +169,72 @@ builder.Services.AddCors(
     });
 
 
-var app =
-    builder.Build();
+// ============================================
+// SWAGGER + JWT AUTHORIZE BUTTON
+// ============================================
+
+builder.Services.AddSwaggerGen(
+    options =>
+    {
+        options.SwaggerDoc(
+            "v1",
+            new OpenApiInfo
+            {
+                Title =
+                    "EventParkingReservationSystem.API",
+
+                Version = "v1"
+            });
+
+        options.AddSecurityDefinition(
+            "Bearer",
+            new OpenApiSecurityScheme
+            {
+                Name = "Authorization",
+
+                Type =
+                    SecuritySchemeType.Http,
+
+                Scheme = "bearer",
+
+                BearerFormat = "JWT",
+
+                In =
+                    ParameterLocation.Header,
+
+                Description =
+                    "Enter JWT token"
+            });
+
+        options.AddSecurityRequirement(
+            new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference =
+                            new OpenApiReference
+                            {
+                                Type =
+                                    ReferenceType
+                                        .SecurityScheme,
+
+                                Id = "Bearer"
+                            }
+                    },
+                    Array.Empty<string>()
+                }
+            });
+    });
+
+
+var app = builder.Build();
 
 app.UseMiddleware<ApiExceptionMiddleware>();
 
 
 // ============================================
-// HTTP PIPELINE
+// PIPELINE
 // ============================================
 
 if (app.Environment.IsDevelopment())
@@ -251,27 +244,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
 app.UseHttpsRedirection();
 
-
-app.UseCors(
-    "FrontendPolicy");
-
-
-// Authentication MUST be before Authorization.
+app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
 
 app.UseAuthorization();
 
-
 app.MapControllers();
-
-
-// ============================================
-// HEALTH
-// ============================================
 
 app.MapGet(
     "/api/health",
@@ -280,12 +261,15 @@ app.MapGet(
             new
             {
                 status = "ok",
-
                 service =
-                    "EventParkingReservationSystem.API"
+                    "Event Parking Reservation System API"
             }));
 
+<<<<<<< HEAD
+app.Run();
+=======
 
 app.Run();
 
 public partial class Program;
+>>>>>>> origin/develop
