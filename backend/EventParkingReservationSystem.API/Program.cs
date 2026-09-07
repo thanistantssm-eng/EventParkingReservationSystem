@@ -2,12 +2,16 @@ using System.Text;
 using EventParkingReservationSystem.API.Data;
 using EventParkingReservationSystem.API.Interfaces.Repositories.Core;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
+using EventParkingReservationSystem.API.Interfaces.Transactions;
+using EventParkingReservationSystem.API.Middleware;
 using EventParkingReservationSystem.API.Repositories.Core;
 using EventParkingReservationSystem.API.Services.Core;
+using EventParkingReservationSystem.API.Services.Transactions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using EventParkingReservationSystem.API.Extensions;
 
 var builder =
     WebApplication.CreateBuilder(args);
@@ -70,6 +74,7 @@ builder.Services.AddScoped<
     IOrganizerService,
     OrganizerService>();
 
+<<<<<<< HEAD
 builder.Services.AddScoped<
     IPropertyService,
     PropertyService>();
@@ -78,6 +83,15 @@ builder.Services.AddScoped<
     IVenueService,
     VenueService>();
 
+=======
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IQrCodeService, QrCodeService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddEventServices();
+>>>>>>> origin/develop
 
 // ============================================
 // JWT AUTHENTICATION
@@ -216,6 +230,8 @@ builder.Services.AddSwaggerGen(
 
 var app = builder.Build();
 
+app.UseMiddleware<ApiExceptionMiddleware>();
+
 
 // ============================================
 // PIPELINE
@@ -249,4 +265,11 @@ app.MapGet(
                     "Event Parking Reservation System API"
             }));
 
+<<<<<<< HEAD
 app.Run();
+=======
+
+app.Run();
+
+public partial class Program;
+>>>>>>> origin/develop

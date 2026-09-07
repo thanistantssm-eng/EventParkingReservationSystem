@@ -1,0 +1,33 @@
+@host = http://localhost:5187
+
+GET {{host}}/api/events/1/availability
+Accept: application/json
+
+### Create booking (seed IDs)
+POST {{host}}/api/bookings
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "eventId": 1,
+  "seatIds": [1, 2],
+  "parkingSlotId": 1,
+  "ticketType": "Standard",
+  "quantity": 2
+}
+
+### Start payment
+POST {{host}}/api/bookings/1/payment
+Content-Type: application/json
+
+{
+  "method": "Card"
+}
+
+### Request OTP
+POST {{host}}/api/otp/request
+Content-Type: application/json
+
+{
+  "paymentId": 1
+}
