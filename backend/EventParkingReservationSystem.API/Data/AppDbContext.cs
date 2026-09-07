@@ -1,4 +1,8 @@
-﻿using EventParkingReservationSystem.API.Models.Core;
+using EventParkingReservationSystem.API.Models.Core;
+using EventParkingReservationSystem.API.Models.Events;
+using EventEntity = EventParkingReservationSystem.API.Models.Events.Event;
+using SeatEntity = EventParkingReservationSystem.API.Models.Events.Seat;
+using ParkingSlotEntity = EventParkingReservationSystem.API.Models.Events.ParkingSlot;
 using EventParkingReservationSystem.API.Models.Transactions;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,62 +20,47 @@ public class AppDbContext : DbContext
     // MEMBER 1 - CORE / AUTH
     // ============================================
 
-    public DbSet<User> Users =>
-        Set<User>();
-
-    public DbSet<Organizer> Organizers =>
-        Set<Organizer>();
-
-    public DbSet<LoginOtp> LoginOtps =>
-        Set<LoginOtp>();
-
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Organizer> Organizers => Set<Organizer>();
+    public DbSet<LoginOtp> LoginOtps => Set<LoginOtp>();
+    public DbSet<Customer> Customers => Set<Customer>();
 
     // ============================================
-    // TRANSACTION / EVENT / BOOKING MODELS
+    // MEMBER 2 - EVENT MANAGEMENT
     // ============================================
 
-    public DbSet<Customer> Customers =>
-        Set<Customer>();
+    public DbSet<EventEntity> Events => Set<EventEntity>();
+    public DbSet<EventCategory> EventCategories => Set<EventCategory>();
+    public DbSet<EventApproval> EventApprovals => Set<EventApproval>();
+    public DbSet<TicketType> TicketTypes => Set<TicketType>();
+    public DbSet<SeatEntity> Seats => Set<SeatEntity>();
+    public DbSet<ParkingArea> ParkingAreas => Set<ParkingArea>();
+    public DbSet<ParkingSlotEntity> ParkingSlots => Set<ParkingSlotEntity>();
+    public DbSet<EventParkingAllocation> EventParkingAllocations =>
+        Set<EventParkingAllocation>();
 
-    public DbSet<Event> Events =>
-        Set<Event>();
+    // ============================================
+    // MEMBER 3 - BOOKING / PAYMENT
+    // ============================================
 
-    public DbSet<Seat> Seats =>
-        Set<Seat>();
-
-    public DbSet<ParkingSlot> ParkingSlots =>
-        Set<ParkingSlot>();
-
-    public DbSet<Booking> Bookings =>
-        Set<Booking>();
-
-    public DbSet<BookingTicket> BookingTickets =>
-        Set<BookingTicket>();
-
-    public DbSet<BookingSeat> BookingSeats =>
-        Set<BookingSeat>();
-
-    public DbSet<BookingParking> BookingParkings =>
-        Set<BookingParking>();
-
-    public DbSet<Payment> Payments =>
-        Set<Payment>();
-
-    public DbSet<OtpVerification> OtpVerifications =>
-        Set<OtpVerification>();
-
-    public DbSet<QrCode> QrCodes =>
-        Set<QrCode>();
-
-    public DbSet<Notification> Notifications =>
-        Set<Notification>();
-
+    public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<BookingTicket> BookingTickets => Set<BookingTicket>();
+    public DbSet<BookingSeat> BookingSeats => Set<BookingSeat>();
+    public DbSet<BookingParking> BookingParkings => Set<BookingParking>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<OtpVerification> OtpVerifications => Set<OtpVerification>();
+    public DbSet<QrCode> QrCodes => Set<QrCode>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        // Member 2 keeps each entity configuration in
+        // Data/Configurations/Events/*.cs.
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(AppDbContext).Assembly);
 
         // ============================================
         // USER
@@ -104,11 +93,9 @@ public class AppDbContext : DbContext
 
             entity.HasOne(x => x.Organizer)
                 .WithOne(x => x.User)
-                .HasForeignKey<Organizer>(
-                    x => x.UserId)
+                .HasForeignKey<Organizer>(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
-
 
         // ============================================
         // ORGANIZER
@@ -132,7 +119,6 @@ public class AppDbContext : DbContext
                 .HasMaxLength(250);
         });
 
-
         // ============================================
         // LOGIN OTP
         // ============================================
@@ -154,7 +140,6 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-
         // ============================================
         // CUSTOMER
         // ============================================
@@ -166,59 +151,6 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => x.Email)
                 .IsUnique();
         });
-
-
-        // ============================================
-        // EVENT
-        // ============================================
-
-        modelBuilder.Entity<Event>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.TicketPrice)
-                .HasPrecision(18, 2);
-
-            entity.Property(x => x.ParkingFee)
-                .HasPrecision(18, 2);
-        });
-
-
-        // ============================================
-        // SEAT
-        // ============================================
-
-        modelBuilder.Entity<Seat>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-
-            entity.HasIndex(x =>
-                new
-                {
-                    x.EventId,
-                    x.SeatNumber
-                })
-                .IsUnique();
-        });
-
-
-        // ============================================
-        // PARKING SLOT
-        // ============================================
-
-        modelBuilder.Entity<ParkingSlot>(entity =>
-        {
-            entity.HasKey(x => x.Id);
-
-            entity.HasIndex(x =>
-                new
-                {
-                    x.EventId,
-                    x.SlotNumber
-                })
-                .IsUnique();
-        });
-
 
         // ============================================
         // BOOKING
@@ -236,8 +168,14 @@ public class AppDbContext : DbContext
 
             entity.Property(x => x.TotalAmount)
                 .HasPrecision(18, 2);
-        });
 
+            // Booking now references Member 2's canonical Event entity.
+            // NoAction prevents deleting an Event through a booking cascade.
+            entity.HasOne(x => x.Event)
+                .WithMany()
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
 
         // ============================================
         // BOOKING TICKET
@@ -249,8 +187,12 @@ public class AppDbContext : DbContext
 
             entity.Property(x => x.UnitPrice)
                 .HasPrecision(18, 2);
-        });
 
+            entity.HasOne(x => x.Booking)
+                .WithMany(x => x.Tickets)
+                .HasForeignKey(x => x.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // ============================================
         // BOOKING SEAT
@@ -262,8 +204,17 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(x => x.SeatId)
                 .IsUnique();
-        });
 
+            entity.HasOne(x => x.Booking)
+                .WithMany(x => x.Seats)
+                .HasForeignKey(x => x.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Seat)
+                .WithMany()
+                .HasForeignKey(x => x.SeatId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         // ============================================
         // BOOKING PARKING
@@ -281,8 +232,17 @@ public class AppDbContext : DbContext
 
             entity.Property(x => x.Fee)
                 .HasPrecision(18, 2);
-        });
 
+            entity.HasOne(x => x.Booking)
+                .WithOne(x => x.Parking)
+                .HasForeignKey<BookingParking>(x => x.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.ParkingSlot)
+                .WithMany()
+                .HasForeignKey(x => x.ParkingSlotId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         // ============================================
         // PAYMENT
@@ -300,8 +260,12 @@ public class AppDbContext : DbContext
 
             entity.Property(x => x.Amount)
                 .HasPrecision(18, 2);
-        });
 
+            entity.HasOne(x => x.Booking)
+                .WithOne(x => x.Payment)
+                .HasForeignKey<Payment>(x => x.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // ============================================
         // PAYMENT OTP
@@ -314,7 +278,6 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => x.PaymentId)
                 .IsUnique();
         });
-
 
         // ============================================
         // QR CODE
@@ -329,63 +292,11 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(x => x.Token)
                 .IsUnique();
+
+            entity.HasOne(x => x.Booking)
+                .WithOne(x => x.QrCode)
+                .HasForeignKey<QrCode>(x => x.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
-
-
-        // ============================================
-        // BOOKING -> PARKING
-        // ============================================
-
-        modelBuilder.Entity<Booking>()
-            .HasOne(x => x.Parking)
-            .WithOne(x => x.Booking)
-            .HasForeignKey<BookingParking>(
-                x => x.BookingId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-
-        // ============================================
-        // BOOKING -> PAYMENT
-        // ============================================
-
-        modelBuilder.Entity<Booking>()
-            .HasOne(x => x.Payment)
-            .WithOne(x => x.Booking)
-            .HasForeignKey<Payment>(
-                x => x.BookingId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-
-        // ============================================
-        // BOOKING -> QR CODE
-        // ============================================
-
-        modelBuilder.Entity<Booking>()
-            .HasOne(x => x.QrCode)
-            .WithOne(x => x.Booking)
-            .HasForeignKey<QrCode>(
-                x => x.BookingId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-
-
-        var bookingEventForeignKey =
-            modelBuilder.Entity<Booking>()
-                .Metadata
-                .GetForeignKeys()
-                .FirstOrDefault(fk =>
-                    fk.Properties.Any(
-                        property =>
-                            property.Name ==
-                            nameof(Booking.EventId)));
-
-        if (bookingEventForeignKey != null)
-        {
-            bookingEventForeignKey.DeleteBehavior =
-                DeleteBehavior.NoAction;
-        }
-
-
-   
     }
 }

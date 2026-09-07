@@ -26,10 +26,12 @@ public static class EventServiceExtensions
         services.AddScoped<ITicketService, TicketService>();
         services.AddScoped<IParkingService, ParkingService>();
 
-        // Cross-module adapters are intentionally NOT registered here:
-        // - IEventReferenceReadService -> Member 1 (Venue/Organizer validation)
-        // - IEventBookingReadService   -> Member 3 (active bookings + availability)
-        // Their parameters are optional until the integration branches are merged.
+        // Member 3 booking integration.
+        services.AddScoped<IEventBookingReadService, EventBookingReadService>();
+
+        // IEventReferenceReadService is still pending because
+        // the merged backend does not yet contain a canonical Venue model/service.
+        // Organizer validation can be wired together with Venue integration.
 
         return services;
     }
