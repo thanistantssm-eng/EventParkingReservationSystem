@@ -135,7 +135,13 @@ public class EventService(
         string actorRole,
         CancellationToken cancellationToken = default)
     {
-        ValidateDateRange(dto.StartDateTime, dto.EndDateTime);
+        ValidateEventDefinition(
+            dto.Name,
+            dto.TicketPrice,
+            dto.StartDateTime,
+            dto.EndDateTime,
+            requireFutureStart: true);
+
         var type = ParseEventType(dto.EventType);
 
         var category = await _categories.GetByIdAsync(
@@ -214,13 +220,26 @@ public class EventService(
         string actorRole,
         CancellationToken cancellationToken = default)
     {
-        ValidateDateRange(dto.StartDateTime, dto.EndDateTime);
+        ValidateEventDefinition(
+            dto.Name,
+            dto.TicketPrice,
+            dto.StartDateTime,
+            dto.EndDateTime,
+            requireFutureStart: false);
+
         var type = ParseEventType(dto.EventType);
         var entity = await GetEditableEventAsync(
             id,
             actorOrganizerId,
             actorRole,
             cancellationToken);
+
+        if (dto.StartDateTime != entity.StartDateTime &&
+            dto.StartDateTime <= DateTime.UtcNow)
+        {
+            throw new ArgumentException(
+                "A changed StartDateTime must be in the future.");
+        }
 
         if (entity.Status is EventStatus.PendingApproval or EventStatus.Approved)
         {
@@ -488,12 +507,41 @@ public class EventService(
         Enum.TryParse(value, true, out parsed) &&
         Enum.IsDefined(parsed);
 
-    private static void ValidateDateRange(DateTime start, DateTime end)
+    private static void ValidateEventDefinition(
+        string? name,
+        decimal ticketPrice,
+        DateTime start,
+        DateTime end,
+        bool requireFutureStart)
     {
-        if (start == default || end == default || end <= start)
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException(
+                "Event name is required.");
+        }
+
+        if (ticketPrice < 0)
+        {
+            throw new ArgumentException(
+                "Ticket price cannot be negative.");
+        }
+
+        if (start == default || end == default)
+        {
+            throw new ArgumentException(
+                "StartDateTime and EndDateTime are required.");
+        }
+
+        if (end <= start)
         {
             throw new ArgumentException(
                 "EndDateTime must be later than StartDateTime.");
+        }
+
+        if (requireFutureStart && start <= DateTime.UtcNow)
+        {
+            throw new ArgumentException(
+                "StartDateTime must be in the future.");
         }
     }
 
