@@ -1,5 +1,6 @@
 using System.Text;
 using EventParkingReservationSystem.API.Data;
+using EventParkingReservationSystem.API.Extensions;
 using EventParkingReservationSystem.API.Interfaces.Repositories.Core;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
 using EventParkingReservationSystem.API.Interfaces.Transactions;
@@ -11,13 +12,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using EventParkingReservationSystem.API.Extensions;
 
 var builder =
     WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-
 builder.Services.AddEndpointsApiExplorer();
 
 
@@ -51,7 +50,7 @@ builder.Services.AddScoped<
 
 
 // ============================================
-// SERVICES
+// MEMBER 1 - CORE / AUTH
 // ============================================
 
 builder.Services.AddScoped<
@@ -74,7 +73,6 @@ builder.Services.AddScoped<
     IOrganizerService,
     OrganizerService>();
 
-<<<<<<< HEAD
 builder.Services.AddScoped<
     IPropertyService,
     PropertyService>();
@@ -83,15 +81,42 @@ builder.Services.AddScoped<
     IVenueService,
     VenueService>();
 
-=======
-builder.Services.AddScoped<IBookingService, BookingService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<IOtpService, OtpService>();
-builder.Services.AddScoped<IQrCodeService, QrCodeService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<IReportService, ReportService>();
+
+// ============================================
+// MEMBER 2 - EVENT MANAGEMENT
+// ============================================
+
 builder.Services.AddEventServices();
->>>>>>> origin/develop
+
+
+// ============================================
+// MEMBER 3 - BOOKING / PAYMENT
+// ============================================
+
+builder.Services.AddScoped<
+    IBookingService,
+    BookingService>();
+
+builder.Services.AddScoped<
+    IPaymentService,
+    PaymentService>();
+
+builder.Services.AddScoped<
+    IOtpService,
+    OtpService>();
+
+builder.Services.AddScoped<
+    IQrCodeService,
+    QrCodeService>();
+
+builder.Services.AddScoped<
+    INotificationService,
+    NotificationService>();
+
+builder.Services.AddScoped<
+    IReportService,
+    ReportService>();
+
 
 // ============================================
 // JWT AUTHENTICATION
@@ -113,12 +138,10 @@ builder.Services
         options =>
         {
             options.DefaultAuthenticateScheme =
-                JwtBearerDefaults
-                    .AuthenticationScheme;
+                JwtBearerDefaults.AuthenticationScheme;
 
             options.DefaultChallengeScheme =
-                JwtBearerDefaults
-                    .AuthenticationScheme;
+                JwtBearerDefaults.AuthenticationScheme;
         })
     .AddJwtBearer(
         options =>
@@ -127,21 +150,16 @@ builder.Services
                 new TokenValidationParameters
                 {
                     ValidateIssuer = true,
-
                     ValidateAudience = true,
-
                     ValidateLifetime = true,
-
                     ValidateIssuerSigningKey = true,
 
                     ValidIssuer = issuer,
-
                     ValidAudience = audience,
 
                     IssuerSigningKey =
                         new SymmetricSecurityKey(
-                            Encoding.UTF8
-                                .GetBytes(jwtKey)),
+                            Encoding.UTF8.GetBytes(jwtKey)),
 
                     ClockSkew = TimeSpan.Zero
                 };
@@ -170,7 +188,7 @@ builder.Services.AddCors(
 
 
 // ============================================
-// SWAGGER + JWT AUTHORIZE BUTTON
+// SWAGGER
 // ============================================
 
 builder.Services.AddSwaggerGen(
@@ -216,12 +234,12 @@ builder.Services.AddSwaggerGen(
                             new OpenApiReference
                             {
                                 Type =
-                                    ReferenceType
-                                        .SecurityScheme,
+                                    ReferenceType.SecurityScheme,
 
                                 Id = "Bearer"
                             }
                     },
+
                     Array.Empty<string>()
                 }
             });
@@ -240,7 +258,6 @@ app.UseMiddleware<ApiExceptionMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-
     app.UseSwaggerUI();
 }
 
@@ -265,11 +282,6 @@ app.MapGet(
                     "Event Parking Reservation System API"
             }));
 
-<<<<<<< HEAD
-app.Run();
-=======
-
 app.Run();
 
 public partial class Program;
->>>>>>> origin/develop
