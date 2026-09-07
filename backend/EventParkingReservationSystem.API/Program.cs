@@ -108,10 +108,15 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IQrCodeService,
     QrCodeService>();
-
+// Core notifications
 builder.Services.AddScoped<
-    INotificationService,
-    NotificationService>();
+    EventParkingReservationSystem.API.Interfaces.Services.Core.INotificationService,
+    EventParkingReservationSystem.API.Services.Core.NotificationService>();
+
+// Booking / transaction notifications
+builder.Services.AddScoped<
+    EventParkingReservationSystem.API.Interfaces.Transactions.INotificationService,
+    EventParkingReservationSystem.API.Services.Transactions.NotificationService>();
 
 builder.Services.AddScoped<
     IReportService,
