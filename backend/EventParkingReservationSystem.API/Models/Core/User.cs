@@ -6,6 +6,10 @@ public class User
 {
     public int Id { get; set; }
 
+    // ============================================
+    // BASIC USER DETAILS
+    // ============================================
+
     [Required]
     [MaxLength(50)]
     public string Username { get; set; } = string.Empty;
@@ -18,17 +22,58 @@ public class User
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
 
-    [Required]
-    public UserRole Role { get; set; } = UserRole.Customer;
+
+    // ============================================
+    // ROLE
+    // ============================================
+
+    public UserRole Role { get; set; }
+        = UserRole.Customer;
+
+
+    // ============================================
+    // ACCOUNT STATUS
+    // ============================================
 
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // ============================================
+    // CREATED / UPDATED
+    // ============================================
+
+    public DateTime CreatedAt { get; set; }
+        = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
 
+
+    // ============================================
+    // ORGANIZER PROFILE
+    // ============================================
+
     public Organizer? Organizer { get; set; }
+
+
+    // ============================================
+    // CUSTOMER PROFILE
+    // ============================================
+
+    public Customer? Customer { get; set; }
+
+
+    // ============================================
+    // LOGIN OTP
+    // ============================================
 
     public ICollection<LoginOtp> LoginOtps { get; set; }
         = new List<LoginOtp>();
+
+
+    // ============================================
+    // USER NOTIFICATIONS
+    // ============================================
+
+    public ICollection<UserNotification> Notifications { get; set; }
+        = new List<UserNotification>();
 }

@@ -8,8 +8,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace EventParkingReservationSystem.API.Services.Core;
 
-public class AuthService
-    : IAuthService
+public class AuthService : IAuthService
 {
     private readonly IUserRepository
         _userRepository;
@@ -26,6 +25,9 @@ public class AuthService
     private readonly IConfiguration
         _configuration;
 
+    private readonly INotificationService
+        _notificationService;
+
     private readonly PasswordHasher<User>
         _passwordHasher = new();
 
@@ -35,7 +37,8 @@ public class AuthService
         ILoginOtpRepository loginOtpRepository,
         IJwtTokenService jwtTokenService,
         IEmailService emailService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        INotificationService notificationService)
     {
         _userRepository =
             userRepository;
@@ -51,12 +54,15 @@ public class AuthService
 
         _configuration =
             configuration;
+
+        _notificationService =
+            notificationService;
     }
 
 
-    // =========================================
+    // ============================================
     // REGISTER
-    // =========================================
+    // ============================================
 
     public async Task<RegisterResponseDto>
         RegisterAsync(
@@ -70,14 +76,12 @@ public class AuthService
                 .Trim()
                 .ToLowerInvariant();
 
-
         if (await _userRepository
             .UsernameExistsAsync(username))
         {
             throw new InvalidOperationException(
                 "Username already exists.");
         }
-
 
         if (await _userRepository
             .EmailExistsAsync(email))
@@ -97,12 +101,11 @@ public class AuthService
         }
 
 
-        // Security:
-        // Public registration cannot create Admin.
+        // Public registration must never create Admin.
         if (role == UserRole.Admin)
         {
             throw new InvalidOperationException(
-                "Admin registration is not allowed.");
+                "Admin cannot register publicly.");
         }
 
 
@@ -111,19 +114,23 @@ public class AuthService
                 request.OrganizationName))
         {
             throw new InvalidOperationException(
-                "Organization name is required for organizers.");
+                "Organization name is required.");
         }
 
 
-        var user =
-            new User
-            {
-                Username = username,
-                Email = email,
-                Role = role,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
+        var user = new User
+        {
+            Username = username,
+
+            Email = email,
+
+            Role = role,
+
+            IsActive = true,
+
+            CreatedAt =
+                DateTime.UtcNow
+        };
 
 
         user.PasswordHash =
@@ -132,28 +139,54 @@ public class AuthService
                 request.Password);
 
 
+        // ============================================
+        // ORGANIZER PROFILE
+        // ============================================
+
         if (role == UserRole.Organizer)
         {
             user.Organizer =
                 new Organizer
                 {
                     OrganizationName =
-                        request.OrganizationName!
+                        request
+                            .OrganizationName!
                             .Trim(),
 
                     PhoneNumber =
-                        string.IsNullOrWhiteSpace(
-                            request.PhoneNumber)
-                            ? null
-                            : request.PhoneNumber.Trim(),
+                        Clean(
+                            request.PhoneNumber),
 
                     Address =
-                        string.IsNullOrWhiteSpace(
-                            request.Address)
-                            ? null
-                            : request.Address.Trim(),
+                        Clean(
+                            request.Address),
 
                     IsVerified = false,
+
+                    CreatedAt =
+                        DateTime.UtcNow
+                };
+        }
+
+
+        // ============================================
+        // CUSTOMER PROFILE
+        // ============================================
+
+        if (role == UserRole.Customer)
+        {
+            user.Customer =
+                new Customer
+                {
+                    Name =
+                        username,
+
+                    Email =
+                        email,
+
+                    Phone =
+                        Clean(
+                            request.PhoneNumber),
 
                     CreatedAt =
                         DateTime.UtcNow
@@ -168,20 +201,58 @@ public class AuthService
             .SaveChangesAsync();
 
 
+        // ============================================
+        // WELCOME NOTIFICATION
+        // ============================================
+
+        await _notificationService
+            .SendToUserAsync(
+                user.Id,
+                "Welcome",
+                $"Welcome {user.Username}. Your account was created successfully.",
+                "Account");
+
+
+        // ============================================
+        // ORGANIZER REGISTER ->
+        // NOTIFY ALL ADMINS
+        // ============================================
+
+        if (user.Role ==
+            UserRole.Organizer)
+        {
+            await _notificationService
+                .SendToRoleAsync(
+                    UserRole.Admin,
+
+                    "New Organizer Registered",
+
+                    $"{user.Username} registered as an organizer and is waiting for verification.",
+
+                    "OrganizerRegistration");
+        }
+
+
         return new RegisterResponseDto
         {
-            UserId = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            Role = user.Role.ToString()
+            UserId =
+                user.Id,
+
+            Username =
+                user.Username,
+
+            Email =
+                user.Email,
+
+            Role =
+                user.Role.ToString()
         };
     }
 
 
-    // =========================================
-    // LOGIN STEP 1
-    // USERNAME / EMAIL + PASSWORD
-    // =========================================
+    // ============================================
+    // LOGIN
+    // ============================================
 
     public async Task<LoginPendingResponseDto>
         LoginAsync(
@@ -192,8 +263,7 @@ public class AuthService
                 .GetByIdentifierAsync(
                     request.Identifier);
 
-
-        if (user is null)
+        if (user == null)
         {
             throw new UnauthorizedAccessException(
                 "Invalid username/email or password.");
@@ -203,7 +273,7 @@ public class AuthService
         if (!user.IsActive)
         {
             throw new UnauthorizedAccessException(
-                "Your account is inactive.");
+                "Account is inactive.");
         }
 
 
@@ -223,106 +293,19 @@ public class AuthService
         }
 
 
-        // Password is correct.
-        // IMPORTANT:
-        // JWT IS NOT GENERATED HERE.
-
         await _loginOtpRepository
             .InvalidateActiveOtpsAsync(
                 user.Id);
 
 
-        var otp =
-            RandomNumberGenerator
-                .GetInt32(
-                    100000,
-                    1000000)
-                .ToString();
-
-
-        var challengeId =
-            Guid.NewGuid();
-
-
-        var expiresAt =
-            DateTime.UtcNow
-                .AddMinutes(5);
-
-
-        var loginOtp =
-            new LoginOtp
-            {
-                ChallengeId =
-                    challengeId,
-
-                UserId =
-                    user.Id,
-
-                OtpHash =
-                    HashOtp(otp),
-
-                CreatedAt =
-                    DateTime.UtcNow,
-
-                ExpiresAt =
-                    expiresAt,
-
-                FailedAttempts =
-                    0,
-
-                IsUsed =
-                    false
-            };
-
-
-        await _loginOtpRepository
-            .AddAsync(loginOtp);
-
-        await _loginOtpRepository
-            .SaveChangesAsync();
-
-
-        try
-        {
-            await _emailService
-                .SendLoginOtpAsync(
-                    user.Email,
-                    user.Username,
-                    otp);
-        }
-        catch
-        {
-            loginOtp.IsUsed = true;
-            loginOtp.UsedAt =
-                DateTime.UtcNow;
-
-            await _loginOtpRepository
-                .SaveChangesAsync();
-
-            throw;
-        }
-
-
-        return new LoginPendingResponseDto
-        {
-            RequiresOtp = true,
-
-            ChallengeId =
-                challengeId,
-
-            MaskedEmail =
-                MaskEmail(user.Email),
-
-            ExpiresAt =
-                expiresAt
-        };
+        return await
+            CreateAndSendOtpAsync(user);
     }
 
 
-    // =========================================
-    // LOGIN STEP 2
-    // VERIFY OTP
-    // =========================================
+    // ============================================
+    // VERIFY LOGIN OTP
+    // ============================================
 
     public async Task<AuthResponseDto>
         VerifyLoginOtpAsync(
@@ -334,7 +317,7 @@ public class AuthService
                     request.ChallengeId);
 
 
-        if (loginOtp is null)
+        if (loginOtp == null)
         {
             throw new UnauthorizedAccessException(
                 "Invalid OTP session.");
@@ -344,15 +327,14 @@ public class AuthService
         if (loginOtp.IsUsed)
         {
             throw new UnauthorizedAccessException(
-                "OTP is no longer valid.");
+                "OTP has already been used.");
         }
 
 
-        if (DateTime.UtcNow >
-            loginOtp.ExpiresAt)
+        if (loginOtp.ExpiresAt <
+            DateTime.UtcNow)
         {
-            loginOtp.IsUsed =
-                true;
+            loginOtp.IsUsed = true;
 
             loginOtp.UsedAt =
                 DateTime.UtcNow;
@@ -367,8 +349,7 @@ public class AuthService
 
         if (loginOtp.FailedAttempts >= 5)
         {
-            loginOtp.IsUsed =
-                true;
+            loginOtp.IsUsed = true;
 
             loginOtp.UsedAt =
                 DateTime.UtcNow;
@@ -377,11 +358,11 @@ public class AuthService
                 .SaveChangesAsync();
 
             throw new UnauthorizedAccessException(
-                "Too many invalid OTP attempts.");
+                "Maximum OTP attempts exceeded.");
         }
 
 
-        if (!VerifyOtpHash(
+        if (!VerifyOtp(
                 request.Otp,
                 loginOtp.OtpHash))
         {
@@ -390,8 +371,7 @@ public class AuthService
 
             if (loginOtp.FailedAttempts >= 5)
             {
-                loginOtp.IsUsed =
-                    true;
+                loginOtp.IsUsed = true;
 
                 loginOtp.UsedAt =
                     DateTime.UtcNow;
@@ -414,12 +394,11 @@ public class AuthService
         if (!user.IsActive)
         {
             throw new UnauthorizedAccessException(
-                "Your account is inactive.");
+                "Account is inactive.");
         }
 
 
-        loginOtp.IsUsed =
-            true;
+        loginOtp.IsUsed = true;
 
         loginOtp.UsedAt =
             DateTime.UtcNow;
@@ -429,8 +408,10 @@ public class AuthService
             .SaveChangesAsync();
 
 
-        // OTP SUCCESS.
-        // NOW JWT IS GENERATED.
+        var expiresAt =
+            _jwtTokenService
+                .GetExpirationTime();
+
 
         var token =
             _jwtTokenService
@@ -443,8 +424,7 @@ public class AuthService
                 token,
 
             ExpiresAt =
-                _jwtTokenService
-                    .GetExpirationTime(),
+                expiresAt,
 
             UserId =
                 user.Id,
@@ -456,14 +436,20 @@ public class AuthService
                 user.Email,
 
             Role =
-                user.Role.ToString()
+                user.Role.ToString(),
+
+            OrganizerId =
+                user.Organizer?.Id,
+
+            CustomerId =
+                user.Customer?.Id
         };
     }
 
 
-    // =========================================
-    // RESEND OTP
-    // =========================================
+    // ============================================
+    // RESEND LOGIN OTP
+    // ============================================
 
     public async Task<LoginPendingResponseDto>
         ResendLoginOtpAsync(
@@ -475,55 +461,59 @@ public class AuthService
                     request.ChallengeId);
 
 
-        if (oldOtp is null)
+        if (oldOtp == null)
         {
-            throw new InvalidOperationException(
-                "Login OTP session not found.");
+            throw new UnauthorizedAccessException(
+                "Invalid OTP session.");
         }
 
 
         if (oldOtp.IsUsed)
         {
-            throw new InvalidOperationException(
-                "OTP session is no longer valid.");
+            throw new UnauthorizedAccessException(
+                "OTP session is no longer active.");
         }
 
 
-        var nextAllowedTime =
-            oldOtp.CreatedAt
-                .AddSeconds(60);
-
-
-        if (DateTime.UtcNow <
-            nextAllowedTime)
-        {
-            var seconds =
-                (int)Math.Ceiling(
-                    (nextAllowedTime -
-                     DateTime.UtcNow)
-                    .TotalSeconds);
-
-            throw new InvalidOperationException(
-                $"Please wait {seconds} seconds before requesting another OTP.");
-        }
-
-
-        var user =
-            oldOtp.User;
-
-
-        if (!user.IsActive)
+        if (!oldOtp.User.IsActive)
         {
             throw new UnauthorizedAccessException(
-                "Your account is inactive.");
+                "Account is inactive.");
+        }
+
+
+        var elapsedSeconds =
+            (DateTime.UtcNow -
+             oldOtp.CreatedAt)
+            .TotalSeconds;
+
+
+        if (elapsedSeconds < 60)
+        {
+            throw new InvalidOperationException(
+                "Please wait 60 seconds before requesting another OTP.");
         }
 
 
         await _loginOtpRepository
             .InvalidateActiveOtpsAsync(
-                user.Id);
+                oldOtp.UserId);
 
 
+        return await
+            CreateAndSendOtpAsync(
+                oldOtp.User);
+    }
+
+
+    // ============================================
+    // CREATE + SEND OTP
+    // ============================================
+
+    private async Task<LoginPendingResponseDto>
+        CreateAndSendOtpAsync(
+            User user)
+    {
         var otp =
             RandomNumberGenerator
                 .GetInt32(
@@ -559,16 +549,15 @@ public class AuthService
                 ExpiresAt =
                     expiresAt,
 
-                FailedAttempts =
-                    0,
+                FailedAttempts = 0,
 
-                IsUsed =
-                    false
+                IsUsed = false
             };
 
 
         await _loginOtpRepository
             .AddAsync(loginOtp);
+
 
         await _loginOtpRepository
             .SaveChangesAsync();
@@ -585,8 +574,10 @@ public class AuthService
         catch
         {
             loginOtp.IsUsed = true;
+
             loginOtp.UsedAt =
                 DateTime.UtcNow;
+
 
             await _loginOtpRepository
                 .SaveChangesAsync();
@@ -597,14 +588,14 @@ public class AuthService
 
         return new LoginPendingResponseDto
         {
-            RequiresOtp =
-                true,
+            RequiresOtp = true,
 
             ChallengeId =
                 challengeId,
 
             MaskedEmail =
-                MaskEmail(user.Email),
+                MaskEmail(
+                    user.Email),
 
             ExpiresAt =
                 expiresAt
@@ -612,58 +603,57 @@ public class AuthService
     }
 
 
-    // =========================================
+    // ============================================
     // OTP HASH
-    // =========================================
+    // ============================================
 
     private string HashOtp(
         string otp)
     {
         var pepper =
-            _configuration["Otp:Pepper"]
+            _configuration[
+                "Otp:Pepper"]
             ?? throw new InvalidOperationException(
-                "OTP pepper is not configured.");
+                "Otp:Pepper is missing.");
 
 
         using var hmac =
             new HMACSHA256(
-                Encoding.UTF8.GetBytes(
-                    pepper));
+                Encoding.UTF8
+                    .GetBytes(pepper));
 
 
-        var hash =
+        return Convert.ToHexString(
             hmac.ComputeHash(
-                Encoding.UTF8.GetBytes(
-                    otp));
-
-
-        return Convert.ToHexString(hash);
+                Encoding.UTF8
+                    .GetBytes(otp)));
     }
 
 
-    private bool VerifyOtpHash(
+    // ============================================
+    // VERIFY OTP HASH
+    // ============================================
+
+    private bool VerifyOtp(
         string otp,
-        string storedHash)
+        string expectedHash)
     {
-        var generatedHash =
-            HashOtp(otp);
-
-
         try
         {
-            var generatedBytes =
+            var actual =
                 Convert.FromHexString(
-                    generatedHash);
+                    HashOtp(otp));
 
-            var storedBytes =
+
+            var expected =
                 Convert.FromHexString(
-                    storedHash);
+                    expectedHash);
 
 
             return CryptographicOperations
                 .FixedTimeEquals(
-                    generatedBytes,
-                    storedBytes);
+                    actual,
+                    expected);
         }
         catch
         {
@@ -672,43 +662,49 @@ public class AuthService
     }
 
 
+    // ============================================
+    // MASK EMAIL
+    // ============================================
+
     private static string MaskEmail(
         string email)
     {
-        var atIndex =
+        var index =
             email.IndexOf('@');
 
 
-        if (atIndex <= 0)
+        if (index <= 0)
         {
             return "***";
         }
 
 
-        var localPart =
-            email[..atIndex];
+        var local =
+            email[..index];
+
 
         var domain =
-            email[(atIndex + 1)..];
+            email[
+                (index + 1)..];
 
 
-        string visiblePart;
-
-        if (localPart.Length == 1)
-        {
-            visiblePart =
-                localPart[..1];
-        }
-        else
-        {
-            visiblePart =
-                localPart[..Math.Min(
-                    2,
-                    localPart.Length)];
-        }
+        var visible =
+            local.Length <= 2
+                ? local[..1]
+                : local[..2];
 
 
         return
-            $"{visiblePart}***@{domain}";
+            $"{visible}***@{domain}";
+    }
+
+
+    private static string? Clean(
+        string? value)
+    {
+        return string.IsNullOrWhiteSpace(
+            value)
+            ? null
+            : value.Trim();
     }
 }

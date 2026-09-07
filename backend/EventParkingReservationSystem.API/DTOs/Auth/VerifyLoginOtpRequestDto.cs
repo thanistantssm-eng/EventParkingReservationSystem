@@ -7,7 +7,7 @@ public class VerifyLoginOtpRequestDto
     [Required]
     public Guid ChallengeId { get; set; }
 
-    [Required(ErrorMessage = "OTP is required.")]
+    [Required]
     [RegularExpression(
         @"^\d{6}$",
         ErrorMessage = "OTP must contain exactly 6 digits."
