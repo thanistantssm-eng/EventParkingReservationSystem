@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using EventParkingReservationSystem.API.Extensions;
 
 var builder =
     WebApplication.CreateBuilder(args);
@@ -138,7 +139,7 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IQrCodeService, QrCodeService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportService, ReportService>();
-
+builder.Services.AddEventServices();
 
 // ============================================
 // JWT AUTHENTICATION
