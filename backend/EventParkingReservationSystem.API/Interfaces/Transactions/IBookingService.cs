@@ -9,5 +9,7 @@ public interface IBookingService
     Task<IReadOnlyList<BookingDto>> GetCustomerBookingsAsync(int customerId, CancellationToken ct);
     Task<IReadOnlyList<BookingDto>> GetEventBookingsAsync(int eventId, CancellationToken ct);
     Task<EventAvailabilityDto> GetAvailabilityAsync(int eventId, CancellationToken ct);
+    Task<BookingDto> AttachParkingAsync(int id, int customerId, ReserveParkingDto request, CancellationToken ct);
+    Task RemoveParkingAsync(int id, int customerId, CancellationToken ct);
     Task CancelAsync(int id, int customerId, CancellationToken ct);
 }

@@ -322,6 +322,128 @@ public sealed class BookingService(AppDbContext db) : IBookingService
                 .ToList());
     }
 
+    public async Task<BookingDto> AttachParkingAsync(
+        int id,
+        int customerId,
+        ReserveParkingDto request,
+        CancellationToken ct)
+    {
+        await using var tx =
+            await db.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                ct);
+
+        var booking = await db.Bookings
+            .Include(x => x.Parking)
+            .Include(x => x.Payment)
+            .SingleOrDefaultAsync(
+                x => x.Id == id,
+                ct)
+            ?? throw new NotFoundException(
+                "Booking not found.");
+
+        if (booking.CustomerId != customerId)
+        {
+            throw new ApiException(
+                403,
+                "You can only modify parking for your own booking.");
+        }
+
+        if (booking.Status != BookingStatus.PendingPayment)
+        {
+            throw new ConflictException(
+                "Parking can only be changed before the booking is finalized.");
+        }
+
+        if (booking.Payment is not null)
+        {
+            throw new ConflictException(
+                "Parking cannot be changed after payment has started.");
+        }
+
+        if (booking.Parking is not null)
+        {
+            throw new ConflictException(
+                "This booking already has a parking reservation.");
+        }
+
+        var parking = await ResolveParkingAsync(
+            booking.EventId,
+            request.ParkingSlotId,
+            ct);
+
+        if (!parking.SlotId.HasValue)
+        {
+            throw new ValidationException(
+                "A parking slot is required.");
+        }
+
+        booking.Parking = new BookingParking
+        {
+            ParkingSlotId = parking.SlotId.Value,
+            Fee = parking.Fee
+        };
+
+        booking.TotalAmount += parking.Fee;
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        return await GetAsync(id, ct);
+    }
+
+    public async Task RemoveParkingAsync(
+        int id,
+        int customerId,
+        CancellationToken ct)
+    {
+        await using var tx =
+            await db.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                ct);
+
+        var booking = await db.Bookings
+            .Include(x => x.Parking)
+            .Include(x => x.Payment)
+            .SingleOrDefaultAsync(
+                x => x.Id == id,
+                ct)
+            ?? throw new NotFoundException(
+                "Booking not found.");
+
+        if (booking.CustomerId != customerId)
+        {
+            throw new ApiException(
+                403,
+                "You can only modify parking for your own booking.");
+        }
+
+        if (booking.Status != BookingStatus.PendingPayment)
+        {
+            throw new ConflictException(
+                "Parking can only be changed before the booking is finalized.");
+        }
+
+        if (booking.Payment is not null)
+        {
+            throw new ConflictException(
+                "Parking cannot be changed after payment has started.");
+        }
+
+        if (booking.Parking is null)
+        {
+            throw new NotFoundException(
+                "This booking does not have a parking reservation.");
+        }
+
+        var parkingFee = booking.Parking.Fee;
+        db.BookingParkings.Remove(booking.Parking);
+        booking.TotalAmount = Math.Max(0m, booking.TotalAmount - parkingFee);
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
     public async Task CancelAsync(
         int id,
         int customerId,

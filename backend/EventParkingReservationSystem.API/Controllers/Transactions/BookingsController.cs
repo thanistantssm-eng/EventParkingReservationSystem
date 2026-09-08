@@ -26,6 +26,37 @@ public sealed class BookingsController(IBookingService service) : ControllerBase
     [HttpGet("/api/events/{eventId:int}/availability")]
     public async Task<ActionResult<EventAvailabilityDto>> Availability(int eventId, CancellationToken ct) => Ok(await service.GetAvailabilityAsync(eventId, ct));
 
+    [HttpPost("{id:int}/parking")]
+    [ProducesResponseType(typeof(BookingDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<BookingDto>> AttachParking(
+        int id,
+        [FromQuery] int customerId,
+        ReserveParkingDto request,
+        CancellationToken ct)
+    {
+        var result = await service.AttachParkingAsync(id, customerId, request, ct);
+        return StatusCode(StatusCodes.Status201Created, result);
+    }
+
+    [HttpDelete("{id:int}/parking")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveParking(
+        int id,
+        [FromQuery] int customerId,
+        CancellationToken ct)
+    {
+        await service.RemoveParkingAsync(id, customerId, ct);
+        return NoContent();
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Cancel(int id, [FromQuery] int customerId, CancellationToken ct)
     { await service.CancelAsync(id, customerId, ct); return NoContent(); }
