@@ -1,6 +1,8 @@
 ﻿using System.Security.Claims;
 using EventParkingReservationSystem.API.DTOs.Organizers;
+using EventParkingReservationSystem.API.DTOs.Transactions;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
+using EventParkingReservationSystem.API.Interfaces.Transactions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,30 +11,30 @@ namespace EventParkingReservationSystem.API.Controllers.Core;
 [ApiController]
 [Route("api/organizers")]
 [Authorize]
-public class OrganizersController
-    : ControllerBase
+public class OrganizersController : ControllerBase
 {
-    private readonly IOrganizerService
-        _organizerService;
+    private readonly IOrganizerService _organizerService;
+    private readonly IReportService _reportService;
 
     public OrganizersController(
-        IOrganizerService organizerService)
+        IOrganizerService organizerService,
+        IReportService reportService)
     {
-        _organizerService =
-            organizerService;
+        _organizerService = organizerService;
+        _reportService = reportService;
     }
 
 
-    // Admin views all organizers
+    // ============================================
+    // ADMIN - VIEW ALL ORGANIZERS
+    // ============================================
 
     [HttpGet]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult>
-        GetAll()
+    public async Task<IActionResult> GetAll()
     {
         var organizers =
-            await _organizerService
-                .GetAllAsync();
+            await _organizerService.GetAllAsync();
 
         return Ok(new
         {
@@ -42,28 +44,25 @@ public class OrganizersController
     }
 
 
-    // Admin gets organizer
+    // ============================================
+    // ADMIN - VIEW SINGLE ORGANIZER
+    // ============================================
 
     [HttpGet("{id:int}")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult>
-        GetById(
-            int id)
+    public async Task<IActionResult> GetById(int id)
     {
         var organizer =
-            await _organizerService
-                .GetByIdAsync(id);
+            await _organizerService.GetByIdAsync(id);
 
         if (organizer is null)
         {
             return NotFound(new
             {
                 success = false,
-                message =
-                    "Organizer not found."
+                message = "Organizer not found."
             });
         }
-
 
         return Ok(new
         {
@@ -73,30 +72,28 @@ public class OrganizersController
     }
 
 
-    // Organizer gets own profile
+    // ============================================
+    // ORGANIZER - VIEW OWN PROFILE
+    // ============================================
 
     [HttpGet("me")]
     [Authorize(Roles = "Organizer")]
     public async Task<IActionResult> Me()
     {
-        var userId =
-            GetCurrentUserId();
+        var userId = GetCurrentUserId();
 
         var organizer =
             await _organizerService
-                .GetByUserIdAsync(
-                    userId);
+                .GetByUserIdAsync(userId);
 
         if (organizer is null)
         {
             return NotFound(new
             {
                 success = false,
-                message =
-                    "Organizer profile not found."
+                message = "Organizer profile not found."
             });
         }
-
 
         return Ok(new
         {
@@ -106,14 +103,67 @@ public class OrganizersController
     }
 
 
-    // Admin verifies/rejects organizer
+    // ============================================
+    // ORGANIZER - VIEW TICKET SALES
+    // ============================================
+
+    [HttpGet("me/ticket-sales")]
+    [Authorize(Roles = "Organizer")]
+    public async Task<IActionResult> GetMyTicketSales(
+        CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+
+        var result =
+            await _reportService
+                .GetOrganizerTicketSalesAsync(
+                    userId,
+                    ct);
+
+        return Ok(new
+        {
+            success = true,
+            data = result
+        });
+    }
+
+
+    // ============================================
+    // ORGANIZER - VIEW EVENT-WISE REVENUE
+    // ============================================
+
+    [HttpGet("me/events/{eventId:int}/revenue")]
+    [Authorize(Roles = "Organizer")]
+    public async Task<IActionResult> GetMyEventRevenue(
+        int eventId,
+        CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+
+        var result =
+            await _reportService
+                .GetOrganizerEventRevenueAsync(
+                    userId,
+                    eventId,
+                    ct);
+
+        return Ok(new
+        {
+            success = true,
+            data = result
+        });
+    }
+
+
+    // ============================================
+    // ADMIN - VERIFY / REMOVE VERIFICATION
+    // ============================================
 
     [HttpPatch("{id:int}/verification")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult>
-        SetVerification(
-            int id,
-            UpdateOrganizerVerificationDto request)
+    public async Task<IActionResult> SetVerification(
+        int id,
+        UpdateOrganizerVerificationDto request)
     {
         var organizer =
             await _organizerService
@@ -126,11 +176,9 @@ public class OrganizersController
             return NotFound(new
             {
                 success = false,
-                message =
-                    "Organizer not found."
+                message = "Organizer not found."
             });
         }
-
 
         return Ok(new
         {
@@ -145,6 +193,10 @@ public class OrganizersController
         });
     }
 
+
+    // ============================================
+    // GET CURRENT USER ID FROM JWT
+    // ============================================
 
     private int GetCurrentUserId()
     {
