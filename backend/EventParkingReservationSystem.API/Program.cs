@@ -70,6 +70,10 @@ builder.Services.AddScoped<
     UserService>();
 
 builder.Services.AddScoped<
+    ICustomerService,
+    CustomerService>();
+
+builder.Services.AddScoped<
     IOrganizerService,
     OrganizerService>();
 
