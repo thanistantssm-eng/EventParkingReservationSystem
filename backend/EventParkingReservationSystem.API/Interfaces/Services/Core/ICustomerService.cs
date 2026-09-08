@@ -4,6 +4,7 @@ namespace EventParkingReservationSystem.API.Interfaces.Services.Core;
 
 public interface ICustomerService
 {
+    // Customer - own profile
     Task<CustomerProfileDto?> GetMyProfileAsync(
         int userId);
 
@@ -11,18 +12,15 @@ public interface ICustomerService
         int userId,
         UpdateCustomerProfileDto request);
 
+    // Admin - customer management
+    Task<IReadOnlyList<AdminCustomerDto>> GetAllForAdminAsync(
+        string? search = null,
+        bool? isActive = null);
 
-    Task<IReadOnlyList<AdminCustomerDto>>
-        GetAllForAdminAsync(
-            string? search,
-            bool? isActive);
+    Task<AdminCustomerDto?> GetByIdForAdminAsync(
+        int id);
 
-    Task<AdminCustomerDto?>
-        GetByIdForAdminAsync(
-            int customerId);
-
-    Task<AdminCustomerDto?>
-        SetStatusAsync(
-            int customerId,
-            bool isActive);
+    Task<AdminCustomerDto?> SetStatusAsync(
+        int id,
+        bool isActive);
 }

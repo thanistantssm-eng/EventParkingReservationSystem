@@ -7,83 +7,226 @@ namespace EventParkingReservationSystem.API.Services.Core;
 
 public class CustomerService : ICustomerService
 {
-    private readonly ICustomerRepository _repository;
+    private readonly ICustomerRepository _customerRepository;
 
-    public CustomerService(ICustomerRepository repository)
+    public CustomerService(
+        ICustomerRepository customerRepository)
     {
-        _repository = repository;
+        _customerRepository = customerRepository;
     }
 
-    public async Task<List<CustomerDto>> GetAllAsync(
-        string? search = null)
+    // =========================================================
+    // CUSTOMER - GET OWN PROFILE
+    // =========================================================
+
+    public async Task<CustomerProfileDto?> GetMyProfileAsync(
+        int userId)
     {
-        var customers = await _repository.GetAllAsync(search);
-
-        return customers.Select(Map).ToList();
-    }
-
-    public async Task<CustomerDto?> GetByIdAsync(int id)
-    {
-        var customer = await _repository.GetByIdAsync(id);
-
-        return customer is null
-            ? null
-            : Map(customer);
-    }
-
-    public async Task<CustomerDto?> GetByUserIdAsync(int userId)
-    {
-        var customer = await _repository.GetByUserIdAsync(userId);
-
-        return customer is null
-            ? null
-            : Map(customer);
-    }
-
-    public async Task<CustomerDto?> UpdateByUserIdAsync(
-        int userId,
-        UpdateCustomerDto request)
-    {
-        var customer = await _repository.GetByUserIdAsync(userId);
+        var customer =
+            await _customerRepository.GetByUserIdAsync(userId);
 
         if (customer is null)
         {
             return null;
         }
 
-        var name = request.Name.Trim();
+        return MapToCustomerProfileDto(customer);
+    }
+
+    // =========================================================
+    // CUSTOMER - UPDATE OWN PROFILE
+    // =========================================================
+
+    public async Task<CustomerProfileDto?> UpdateMyProfileAsync(
+        int userId,
+        UpdateCustomerProfileDto request)
+    {
+        var customer =
+            await _customerRepository.GetByUserIdAsync(userId);
+
+        if (customer is null)
+        {
+            return null;
+        }
+
+        var name = request.Name?.Trim();
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Customer name is required.");
+            throw new ArgumentException(
+                "Customer name is required.");
         }
 
         customer.Name = name;
-        customer.Phone = Clean(request.Phone);
-        customer.UpdatedAt = DateTime.UtcNow;
 
-        await _repository.SaveChangesAsync();
+        customer.Phone =
+            Clean(request.Phone);
 
-        return Map(customer);
+        customer.UpdatedAt =
+            DateTime.UtcNow;
+
+        // Keep user audit field updated too
+        customer.User.UpdatedAt =
+            DateTime.UtcNow;
+
+        await _customerRepository.SaveChangesAsync();
+
+        return MapToCustomerProfileDto(customer);
     }
 
-    private static CustomerDto Map(Customer customer)
+    // =========================================================
+    // ADMIN - GET ALL CUSTOMERS
+    // =========================================================
+
+    public async Task<IReadOnlyList<AdminCustomerDto>>
+        GetAllForAdminAsync(
+            string? search = null,
+            bool? isActive = null)
     {
-        return new CustomerDto
+        var customers =
+            await _customerRepository.GetAllAsync(search);
+
+        IEnumerable<Customer> query = customers;
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(x =>
+                x.User.IsActive == isActive.Value);
+        }
+
+        return query
+            .Select(MapToAdminCustomerDto)
+            .ToList();
+    }
+
+    // =========================================================
+    // ADMIN - GET CUSTOMER BY ID
+    // =========================================================
+
+    public async Task<AdminCustomerDto?> GetByIdForAdminAsync(
+        int id)
+    {
+        var customer =
+            await _customerRepository.GetByIdAsync(id);
+
+        if (customer is null)
+        {
+            return null;
+        }
+
+        return MapToAdminCustomerDto(customer);
+    }
+
+    // =========================================================
+    // ADMIN - ACTIVATE / DEACTIVATE CUSTOMER
+    // =========================================================
+
+    public async Task<AdminCustomerDto?> SetStatusAsync(
+        int id,
+        bool isActive)
+    {
+        var customer =
+            await _customerRepository.GetByIdAsync(id);
+
+        if (customer is null)
+        {
+            return null;
+        }
+
+        customer.User.IsActive =
+            isActive;
+
+        customer.User.UpdatedAt =
+            DateTime.UtcNow;
+
+        customer.UpdatedAt =
+            DateTime.UtcNow;
+
+        await _customerRepository.SaveChangesAsync();
+
+        return MapToAdminCustomerDto(customer);
+    }
+
+    // =========================================================
+    // CUSTOMER PROFILE DTO MAPPING
+    // =========================================================
+
+    private static CustomerProfileDto
+        MapToCustomerProfileDto(
+            Customer customer)
+    {
+        return new CustomerProfileDto
         {
             Id = customer.Id,
+
             UserId = customer.UserId,
-            Username = customer.User.Username,
-            Name = customer.Name,
-            Email = customer.Email,
-            Phone = customer.Phone,
-            IsActive = customer.User.IsActive,
-            CreatedAt = customer.CreatedAt,
-            UpdatedAt = customer.UpdatedAt
+
+            Username =
+                customer.User.Username,
+
+            Name =
+                customer.Name,
+
+            Email =
+                customer.Email,
+
+            Phone =
+                customer.Phone,
+
+            IsActive =
+                customer.User.IsActive,
+
+            CreatedAt =
+                customer.CreatedAt,
+
+            UpdatedAt =
+                customer.UpdatedAt
         };
     }
 
-    private static string? Clean(string? value)
+    // =========================================================
+    // ADMIN CUSTOMER DTO MAPPING
+    // =========================================================
+
+    private static AdminCustomerDto
+        MapToAdminCustomerDto(
+            Customer customer)
+    {
+        return new AdminCustomerDto
+        {
+            Id = customer.Id,
+
+            UserId = customer.UserId,
+
+            Username =
+                customer.User.Username,
+
+            Name =
+                customer.Name,
+
+            Email =
+                customer.Email,
+
+            Phone =
+                customer.Phone,
+
+            IsActive =
+                customer.User.IsActive,
+
+            CreatedAt =
+                customer.CreatedAt,
+
+            UpdatedAt =
+                customer.UpdatedAt
+        };
+    }
+
+    // =========================================================
+    // CLEAN OPTIONAL STRING
+    // =========================================================
+
+    private static string? Clean(
+        string? value)
     {
         return string.IsNullOrWhiteSpace(value)
             ? null

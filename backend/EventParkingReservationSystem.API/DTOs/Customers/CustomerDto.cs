@@ -1,4 +1,6 @@
-﻿namespace EventParkingReservationSystem.API.DTOs.Customers;
+﻿using EventParkingReservationSystem.API.Models.Core;
+
+namespace EventParkingReservationSystem.API.DTOs.Customers;
 
 public class CustomerDto
 {
@@ -13,4 +15,9 @@ public class CustomerDto
     public string? Phone { get; set; }
 
     public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public User User { get; set; } = null!;
 }
