@@ -1,0 +1,174 @@
+<main class="auth-page">
+  <section class="auth-visual">
+    <span class="sr-only">Event Parking Reservation System</span>
+  </section>
+  <section class="auth-form-panel">
+    <button class="language" type="button" (click)="chooseLanguage()">◉ English⌄</button>
+    <article class="auth-card" [class.register-card]="mode === 'register'">
+      <span class="auth-icon">{{ mode === 'register' ? '♙' : mode === 'reset' ? '⌑' : '♙' }}</span>
+      <h1>
+        {{
+          mode === 'login'
+            ? 'Welcome Back'
+            : mode === 'register'
+              ? 'Create Your Account'
+              : 'Reset Password'
+        }}
+      </h1>
+      <p>
+        {{
+          mode === 'login'
+            ? 'Sign in to continue to your account'
+            : mode === 'register'
+              ? 'Join Event Parking and get started in minutes.'
+              : resetStage() === 'request'
+                ? 'Enter your registered email to receive a verification code.'
+                : 'Enter the code and create a new password.'
+        }}
+      </p>
+      @if (mode === 'login') {
+        <span class="login-role">{{ roleLabel }} access</span>
+      }
+      <form (ngSubmit)="submit()">
+        @if (mode === 'register') {
+          <div class="form-two">
+            <label
+              >Full Name
+              <div>
+                <span>♙</span
+                ><input
+                  name="name"
+                  [(ngModel)]="name"
+                  placeholder="Enter your full name"
+                /></div></label
+            ><label
+              >Email Address
+              <div>
+                <span>✉</span
+                ><input
+                  name="email"
+                  [(ngModel)]="email"
+                  type="email"
+                  placeholder="Enter your email"
+                /></div
+            ></label>
+          </div>
+          <label
+            >Mobile Number
+            <div>
+              <span>☎</span
+              ><input
+                name="phone"
+                [(ngModel)]="phone"
+                placeholder="Enter your mobile number"
+              /></div
+          ></label>
+        }
+        @if (mode !== 'register') {
+          <label
+            >Email or Username
+            <div>
+              <span>✉</span
+              ><input
+                name="email"
+                [(ngModel)]="email"
+                placeholder="Enter your email or username"
+              /></div
+          ></label>
+        }
+        @if (mode === 'reset' && resetStage() === 'change') {
+          <label
+            >Verification Code
+            <div>
+              <span>⌑</span><input name="code" [(ngModel)]="code" placeholder="6-digit code" /></div
+          ></label>
+        }
+        @if (mode !== 'reset' || resetStage() === 'change') {
+          <div class="form-two" [class.single]="mode === 'login'">
+            <label
+              >Password
+              <div>
+                <span>▣</span
+                ><input
+                  name="password"
+                  [(ngModel)]="password"
+                  [type]="passwordVisible() ? 'text' : 'password'"
+                  [placeholder]="mode === 'reset' ? 'Create new password' : 'Enter your password'"
+                /><button type="button" (click)="passwordVisible.set(!passwordVisible())">◉</button>
+              </div></label
+            >
+            @if (mode !== 'login') {
+              <label
+                >Confirm Password
+                <div>
+                  <span>▣</span
+                  ><input
+                    name="confirm"
+                    [(ngModel)]="confirm"
+                    type="password"
+                    placeholder="Confirm password"
+                  /></div
+              ></label>
+            }
+          </div>
+        }
+        @if (mode === 'login') {
+          <div class="form-options">
+            <label class="check"
+              ><input type="checkbox" [checked]="remember()" (change)="remember.set(!remember())" />
+              Remember me</label
+            ><a routerLink="/reset-password">Forgot Password?</a>
+          </div>
+        }
+        @if (mode === 'register') {
+          <label class="terms"
+            ><input type="checkbox" checked /> I agree to the Terms & Conditions and Privacy
+            Policy</label
+          >
+        }
+        <button class="submit" type="submit">
+          {{
+            mode === 'login'
+              ? 'Sign In'
+              : mode === 'register'
+                ? 'Create Account'
+                : resetStage() === 'request'
+                  ? 'Send Verification Code'
+                  : 'Reset Password'
+          }}
+          →
+        </button>
+        @if (message()) {
+          <p class="auth-message">{{ message() }}</p>
+        }
+      </form>
+      <div class="divider"><i></i><span>or continue with</span><i></i></div>
+      <div class="social">
+        <button type="button" aria-label="Continue with Google" (click)="socialLogin('Google')">
+          G</button
+        ><button type="button" aria-label="Continue with Apple" (click)="socialLogin('Apple')">
+          ●</button
+        ><button
+          type="button"
+          aria-label="Continue with Microsoft"
+          (click)="socialLogin('Microsoft')"
+        >
+          <i></i><i></i><i></i><i></i>
+        </button>
+      </div>
+      <p class="switch">
+        {{
+          mode === 'login'
+            ? 'Don’t have an account?'
+            : mode === 'register'
+              ? 'Already have an account?'
+              : 'Remember your password?'
+        }}
+        <a [routerLink]="mode === 'login' ? '/register' : '/login'">{{
+          mode === 'login' ? 'Create Account' : 'Sign In'
+        }}</a>
+      </p>
+      <a class="back" routerLink="/">← Back to Eventora</a>
+    </article>
+  </section>
+</main>

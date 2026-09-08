@@ -1,0 +1,346 @@
+<header class="hero" id="home">
+  <nav class="nav shell" aria-label="Main navigation">
+    <a class="brand" href="#home" aria-label="Eventora home">
+      <span class="brand-mark" aria-hidden="true">✦</span>
+      <span><strong>Eventora</strong><small>Events • Tickets • Parking</small></span>
+    </a>
+    <button
+      class="menu-toggle"
+      type="button"
+      aria-label="Toggle menu"
+      (click)="menuOpen.set(!menuOpen())"
+    >
+      ☰
+    </button>
+    <div class="nav-links" [class.open]="menuOpen()">
+      <a class="active" href="#home">Home</a><a routerLink="/events">Events</a
+      ><a routerLink="/how-it-works">How It Works</a><a routerLink="/parking">Parking</a
+      ><a routerLink="/about">About</a><a routerLink="/contact">Contact</a>
+    </div>
+    <div class="nav-actions">
+      <button class="icon-button" type="button" aria-label="Search" (click)="focusSearch()">
+        ⌕</button
+      ><a class="btn btn-white" routerLink="/login">Log In</a
+      ><a class="btn btn-primary" routerLink="/register">Create Account</a>
+    </div>
+  </nav>
+
+  <div class="hero-content shell">
+    <div class="hero-copy">
+      <span class="eyebrow">Events • Tickets • Parking — All in One Place</span>
+      <h1>Book the Event.<br />Reserve Your Seat.<br /><em>Park Without Stress.</em></h1>
+      <p>
+        Discover events, choose your perfect seat, reserve parking, and manage everything from one
+        seamless experience.
+      </p>
+      <div class="hero-buttons">
+        <a class="btn btn-primary btn-large" routerLink="/events">Explore Events <span>→</span></a
+        ><a class="btn btn-outline btn-large" href="#how">Get Started</a>
+      </div>
+      <div class="trust-row">
+        <span>● Secure Booking</span><span>● Easy & Fast</span><span>● Parking is Optional</span>
+      </div>
+    </div>
+
+    <div class="booking-preview" aria-label="Booking preview">
+      <article class="preview-card upcoming">
+        <span class="preview-icon pink">♫</span>
+        <div>
+          <small>Upcoming Event</small><strong>Summer Music Fest</strong
+          ><span>◷ May 24, 2026 • 6:00 PM</span><span>⌖ Chennai Stadium</span>
+        </div>
+        <b>→</b>
+      </article>
+      <div class="preview-pair">
+        <article class="preview-card">
+          <span class="preview-icon violet">✦</span>
+          <div><small>Your Tickets</small><strong>A1, A2</strong><i>Confirmed</i></div>
+        </article>
+        <article class="preview-card">
+          <span class="preview-icon green">P</span>
+          <div><small>Parking Slot</small><strong>Zone B • B27</strong><i>Reserved</i></div>
+        </article>
+      </div>
+    </div>
+
+    <div class="ticket-phone" aria-label="Digital ticket preview">
+      <small>✦ Eventora</small>
+      <div class="qr-pattern" aria-hidden="true"></div>
+      <strong>Your Event Ticket</strong><span>Scan at Entry</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="search-wrap shell" aria-label="Find events">
+    <div class="search-grid">
+      <label class="search-field wide"
+        ><span>⌕</span
+        ><input
+          type="search"
+          placeholder="Search events, artists, or venues..."
+          [value]="query()"
+          (input)="updateQuery($event)"
+      /></label>
+      <label class="select-field"
+        ><span>⌖</span><small>Location / Venue</small
+        ><select>
+          <option>All Locations</option>
+          <option>Chennai</option>
+          <option>Bengaluru</option>
+        </select></label
+      >
+      <label class="select-field"
+        ><span>▦</span><small>Category</small
+        ><select [value]="selectedCategory()" (change)="updateCategory($event)">
+          <option>All Categories</option>
+          <option>Concert</option>
+          <option>Sports</option>
+          <option>Conference</option>
+          <option>Festival</option>
+        </select></label
+      >
+      <label class="select-field"
+        ><span>▣</span><small>Date</small
+        ><select>
+          <option>Any Date</option>
+          <option>This Week</option>
+          <option>This Month</option>
+        </select></label
+      >
+      <button class="btn btn-primary find-btn" type="button" (click)="findEvents()">
+        Find Events <b>→</b>
+      </button>
+    </div>
+    <div class="category-row">
+      <strong>Popular Categories:</strong
+      ><button type="button" (click)="chooseCategory('Concert')">♫ Concert</button
+      ><button type="button" (click)="chooseCategory('Sports')">🏆 Sports</button
+      ><button type="button" (click)="chooseCategory('Conference')">♟ Conference</button
+      ><button type="button" (click)="chooseCategory('All Categories')">▣ Workshop</button
+      ><button type="button" (click)="chooseCategory('Festival')">▲ Festival</button
+      ><button type="button" (click)="chooseCategory('All Categories')">▦ Other</button>
+    </div>
+  </section>
+
+  <section class="section shell" id="events">
+    <div class="section-head">
+      <div>
+        <h2>Events <em>You’ll Love</em></h2>
+        <p>Discover popular and upcoming experiences.</p>
+      </div>
+      <a routerLink="/events">View All Events →</a>
+    </div>
+    @if (searchMessage()) {
+      <p class="search-message" role="status">{{ searchMessage() }}</p>
+    }
+    <div class="event-grid">
+      @for (event of filteredEvents(); track event.title) {
+        <article class="event-card">
+          <div class="event-image" [style.background-position]="event.imagePosition">
+            <span class="date-badge"
+              ><b>{{ event.day }}</b
+              >{{ event.month }}</span
+            ><button
+              class="heart"
+              type="button"
+              [class.saved]="favoriteTitles().has(event.title)"
+              (click)="toggleFavorite(event.title)"
+              [attr.aria-label]="'Save ' + event.title"
+            >
+              {{ favoriteTitles().has(event.title) ? '♥' : '♡' }}</button
+            ><span class="category-badge">{{ event.category }}</span>
+          </div>
+          <div class="event-body">
+            <h3>{{ event.title }}</h3>
+            <p>⌖ {{ event.venue }}</p>
+            <p>◷ {{ event.time }}</p>
+            <div>
+              <span
+                >From <strong>{{ event.price }}</strong></span
+              ><button type="button" class="event-link" [routerLink]="['/events', event.id]">
+                View Event →
+              </button>
+            </div>
+            <small>{{ event.ticketType }}</small>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state">Try another search or category.</div>
+      }
+    </div>
+  </section>
+
+  <section class="section shell how" id="how">
+    <div class="section-head">
+      <div>
+        <h2>From Event to Entry in <em>Minutes</em></h2>
+        <p>A simple and seamless booking experience.</p>
+      </div>
+    </div>
+    <div class="steps">
+      <article>
+        <span class="step-number">1</span><b class="step-icon">⌕</b>
+        <h3>Discover</h3>
+        <p>Find an event you love.</p>
+      </article>
+      <article>
+        <span class="step-number">2</span><b class="step-icon pink">◆</b>
+        <h3>Choose Ticket / Seat</h3>
+        <p>Select your ticket and seat when applicable.</p>
+      </article>
+      <article>
+        <span class="step-number">3</span><b class="step-icon green">P</b><i>Optional</i>
+        <h3>Reserve Parking</h3>
+        <p>Add a parking slot if you need one.</p>
+      </article>
+      <article>
+        <span class="step-number">4</span><b class="step-icon blue">▣</b>
+        <h3>Pay & Get QR</h3>
+        <p>Complete your booking and receive your QR ticket.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="parking-feature shell" id="parking">
+    <div class="parking-photo">
+      <span
+        >PARK<br />SMART.<br /><em>EVENT<br />HAPPIER.</em></span
+      >
+    </div>
+    <div class="parking-copy">
+      <span class="smart-pill">🚘 Smart Event Parking</span>
+      <h2>Your parking spot can be ready before you arrive.</h2>
+      <p>
+        See available parking for your event, select a slot, and keep your parking details together
+        with your booking.
+      </p>
+      <ul>
+        <li>Live slot availability</li>
+        <li>Clear parking zones</li>
+        <li>Optional during booking</li>
+        <li>One booking, ticket + parking</li>
+      </ul>
+      <a class="btn btn-primary" href="#how">See How Parking Works →</a>
+    </div>
+    <div class="parking-map">
+      @for (slot of ['A01', 'A02', 'CAR', 'B26', 'B27', 'B28', 'C10', 'C11', 'C12']; track slot) {
+        <button
+          type="button"
+          [class.selected]="slot === selectedParking()"
+          [class.busy]="slot === 'B28' || slot === 'CAR'"
+          [disabled]="slot === 'B28' || slot === 'CAR'"
+          (click)="chooseParking(slot)"
+        >
+          {{ slot === 'CAR' ? '🚙' : slot
+          }}<small>{{ slot === selectedParking() ? '✓' : '' }}</small>
+        </button>
+      }
+      <div class="parking-legend">
+        <span>● Available</span><span>● Selected</span><span>● Occupied</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section shell roles" id="roles">
+    <div class="section-head">
+      <div>
+        <h2>Built for <em>Everyone</em></h2>
+        <p>Different roles, one seamless platform.</p>
+      </div>
+    </div>
+    <div class="role-grid">
+      <article class="featured">
+        <span class="role-icon">♟</span>
+        <div>
+          <h3>Customer</h3>
+          <p>Discover events, reserve tickets, seats and parking.</p>
+        </div>
+        <a class="btn btn-primary" routerLink="/register">Create Customer Account →</a>
+      </article>
+      <article>
+        <span class="role-icon pink">♟</span>
+        <div>
+          <h3>Organizer</h3>
+          <p>Create events, configure tickets, seats and parking.</p>
+        </div>
+        <a class="btn btn-soft" [routerLink]="['/login']" [queryParams]="{ role: 'organizer' }"
+          >Organizer Login →</a
+        >
+      </article>
+      <article>
+        <span class="role-icon blue">⚙</span>
+        <div>
+          <h3>Admin</h3>
+          <p>Manage events, approvals, bookings and activity.</p>
+        </div>
+        <a class="btn btn-soft" [routerLink]="['/login']" [queryParams]="{ role: 'admin' }"
+          >Admin Login →</a
+        >
+      </article>
+    </div>
+  </section>
+
+  <section class="stats shell">
+    <article>
+      <b>♟</b><span><strong>10,000+</strong><small>Happy Customers</small></span>
+    </article>
+    <article>
+      <b>▣</b><span><strong>500+</strong><small>Events Hosted</small></span>
+    </article>
+    <article>
+      <b>🚘</b><span><strong>3,000+</strong><small>Parking Slots</small></span>
+    </article>
+    <article>
+      <b>★</b><span><strong>4.8/5</strong><small>User Satisfaction</small></span>
+    </article>
+  </section>
+
+  <section class="final-cta shell">
+    <div>
+      <h2>Your Next Event Starts Here.</h2>
+      <p>Find an event, book your seat and arrive with confidence.</p>
+      <a class="btn btn-white" routerLink="/events">Explore Events →</a
+      ><a class="btn btn-outline" routerLink="/register">Create Free Account</a>
+    </div>
+    <span>Live Events.<br />Better Together.</span>
+  </section>
+</main>
+
+<footer id="footer">
+  <div class="footer-grid shell">
+    <div>
+      <a class="brand" href="#home"
+        ><span class="brand-mark">✦</span
+        ><span><strong>Eventora</strong><small>Events • Tickets • Parking</small></span></a
+      >
+      <p>Your complete event and parking reservation platform. Simple. Secure. Reliable.</p>
+      <div class="socials">f　◎　𝕏　▶　in</div>
+    </div>
+    <div>
+      <h3>Explore</h3>
+      <a routerLink="/events">Events</a><a routerLink="/events">Categories</a
+      ><a routerLink="/parking">Parking</a><a routerLink="/events">Venues</a>
+    </div>
+    <div>
+      <h3>Account</h3>
+      <a routerLink="/login">Login</a><a routerLink="/register">Register</a
+      ><a routerLink="/login">My Bookings</a><a routerLink="/login">My Parking</a>
+    </div>
+    <div>
+      <h3>Support</h3>
+      <a routerLink="/faq">Help Center</a><a routerLink="/contact">Contact Us</a
+      ><a routerLink="/faq">FAQ</a><a routerLink="/contact">Live Chat</a>
+    </div>
+    <div>
+      <h3>Legal</h3>
+      <a href="#footer">Privacy Policy</a><a href="#footer">Terms & Conditions</a
+      ><a href="#footer">Cookie Policy</a><a href="#footer">Refund Policy</a>
+    </div>
+  </div>
+  <div class="footer-bottom shell">
+    <span>© 2026 Eventora. All rights reserved.</span
+    ><span>Made with <b>♥</b> for better events</span>
+  </div>
+  <a class="back-top" href="#home" aria-label="Back to top">↑</a>
+</footer>

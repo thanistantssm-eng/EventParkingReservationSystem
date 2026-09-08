@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; color: #11183f; background: #fbfcff; font-family: 'DM Sans', Arial, sans-serif; }
+button, input, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; }
+
+
+/* === Eventora readability & alignment upgrade v2 === */
+:root {
+  --ui-body-font: 15px;
+  --ui-secondary-font: 13px;
+  --ui-label-font: 13px;
+  --ui-control-font: 14px;
+  --ui-control-height: 46px;
+  --ui-focus-ring: 0 0 0 3px rgba(83, 91, 242, .13);
+}
+html { font-size: 16px; }
+body {
+  font-size: var(--ui-body-font);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+input, select, textarea { font-size: var(--ui-control-font); }
+input::placeholder, textarea::placeholder { opacity: 1; color: #8b93a6; }
+button, input, select, textarea, a { outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 2px solid #6e55e8;
+  box-shadow: var(--ui-focus-ring);
+}
+
+/* Comfortable form interaction targets. */
+input[type="checkbox"], input[type="radio"] { min-width: 18px; min-height: 18px; }

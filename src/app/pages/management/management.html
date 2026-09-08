@@ -1,0 +1,2670 @@
+<div class="mgmt" [class.admin-theme]="role() === 'admin'">
+  <aside class="side" [class.open]="sidebarOpen()">
+    <a class="brand" [routerLink]="role() === 'admin' ? '/admin/dashboard' : '/organizer/dashboard'"
+      ><span class="brand-mark">P</span
+      ><span><b>Event Parking</b><small>Reservation System</small></span></a
+    >
+    <div class="side-visual" [class.admin-visual]="role() === 'admin'">
+      <span>{{ role() === 'admin' ? 'SMART CONTROL' : 'CREATE • CONNECT • GROW' }}</span
+      ><b>{{
+        role() === 'admin'
+          ? 'Run every event with confidence.'
+          : 'Turn ideas into unforgettable events.'
+      }}</b>
+    </div>
+    <div class="role-pill">{{ role() === 'admin' ? 'ADMIN' : 'ORGANIZER' }}</div>
+    <nav>
+      @for (item of role() === 'admin' ? adminNav : organizerNav; track item[1]) {
+        <a [routerLink]="item[1]" [class.active]="isActive(item[1])"
+          ><i>{{ item[2] }}</i
+          ><span>{{ item[0] }}</span>
+          @if (item[0] === 'Approvals') {
+            <em>3</em>
+          }
+          @if (item[0] === 'Notifications') {
+            <em>6</em>
+          }
+        </a>
+      }
+    </nav>
+    <div class="profile-card">
+      <div class="avatar">{{ role() === 'admin' ? 'K' : 'A' }}</div>
+      <div>
+        <b>{{ role() === 'admin' ? 'Kavin Kumar' : 'Arun Prakash' }}</b
+        ><small>{{ role() === 'admin' ? 'System Administrator' : 'SoundWave Events' }}</small
+        ><span>● Online</span>
+      </div>
+      <button type="button" aria-label="Open account" (click)="goToAccount()">⌄</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <button class="menu-btn" (click)="sidebarOpen.set(!sidebarOpen())">☰</button>
+      <div class="global-search">
+        ⌕
+        <input
+          placeholder="Search events, bookings, people..."
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+        />
+      </div>
+      <button
+        class="icon-btn"
+        type="button"
+        aria-label="Open notifications"
+        (click)="goToNotifications()"
+      >
+        ♢<i>6</i>
+      </button>
+      <div class="mini-user">
+        <span>{{ role() === 'admin' ? 'K' : 'A' }}</span>
+        <div>
+          <b>{{ role() === 'admin' ? 'Kavin Kumar' : 'Arun Prakash' }}</b
+          ><small>{{ role() === 'admin' ? 'Administrator' : 'Organizer' }}</small>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      @if (role() === 'organizer') {
+        @switch (view()) {
+          @case ('dashboard') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">ORGANIZER OVERVIEW</span>
+                <h1>Organizer Dashboard 👋</h1>
+                <p>Manage events, bookings, approvals and revenue in one clear workspace.</p>
+              </div>
+              <button class="primary" (click)="go('/organizer/events/create/type')">
+                ＋ Create Event
+              </button>
+            </section>
+            <section class="stats five">
+              <article>
+                <i class="purple">▣</i><small>My Events</small><b>12</b
+                ><span>↑ 20% this month</span>
+              </article>
+              <article>
+                <i class="orange">◷</i><small>Pending Approval</small><b>3</b
+                ><span>Needs attention</span>
+              </article>
+              <article>
+                <i class="green">✓</i><small>Approved Events</small><b>9</b><span>↑ 28%</span>
+              </article>
+              <article>
+                <i class="blue">◆</i><small>Total Bookings</small><b>842</b><span>↑ 18.3%</span>
+              </article>
+              <article>
+                <i class="purple">₹</i><small>Revenue</small><b>₹8,45,230</b><span>↑ 22.7%</span>
+              </article>
+            </section>
+            <article class="panel workflow">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">FAST SETUP</span>
+                  <h2>Event Workflow</h2>
+                </div>
+                <button (click)="go('/organizer/events/create/type')">Start new event →</button>
+              </div>
+              <div class="workflow-row">
+                @for (
+                  step of [
+                    { n: '1', t: 'Create Event', i: '＋' },
+                    { n: '2', t: 'Add Details', i: '▤' },
+                    { n: '3', t: 'Seats / Capacity', i: '♙' },
+                    { n: '4', t: 'Ticket Pricing', i: '◆' },
+                    { n: '5', t: 'Parking', i: 'Ⓟ' },
+                    { n: '6', t: 'Poster / QR', i: '▦' },
+                    { n: '7', t: 'Submit', i: '➤' },
+                  ];
+                  track step.n
+                ) {
+                  <div>
+                    <span>{{ step.i }}</span
+                    ><b>{{ step.t }}</b
+                    ><small>Step {{ step.n }}</small>
+                  </div>
+                }
+              </div>
+            </article>
+            <section class="dash-grid">
+              <article class="panel span2">
+                <div class="panel-title">
+                  <div>
+                    <h2>My Events</h2>
+                    <p>Recent events and current status</p>
+                  </div>
+                  <button (click)="go('/organizer/my-events')">View all</button>
+                </div>
+                <div class="event-list">
+                  @for (e of organizerEvents; track e.id) {
+                    <div class="event-row">
+                      <img [src]="e.image" />
+                      <div class="event-main">
+                        <b>{{ e.title }}</b
+                        ><small>{{ e.venue }} • {{ e.date }}</small>
+                      </div>
+                      <span class="tag">{{ e.type }}</span
+                      ><span
+                        class="status"
+                        [class.pending]="e.status === 'Pending'"
+                        [class.draft]="e.status === 'Draft'"
+                        >{{ e.status }}</span
+                      ><strong>{{ e.bookings }} bookings</strong
+                      ><button (click)="go('/organizer/events/' + e.id)">Manage →</button>
+                    </div>
+                  }
+                </div>
+              </article>
+              <article class="panel">
+                <h2>Quick Actions</h2>
+                <div class="quick-grid">
+                  <button (click)="go('/organizer/events/create/type')">
+                    ＋<span>Create Event</span></button
+                  ><button (click)="go('/organizer/events/summer/seats')">
+                    ♙<span>Manage Seats</span></button
+                  ><button (click)="go('/organizer/events/summer/ticket-pricing')">
+                    ◆<span>Ticket Pricing</span></button
+                  ><button (click)="go('/organizer/events/summer/parking-setup')">
+                    Ⓟ<span>Parking Setup</span></button
+                  ><button (click)="go('/organizer/events/summer/poster-qr')">
+                    ▦<span>Poster / QR</span></button
+                  ><button (click)="go('/organizer/reports')">▥<span>Reports</span></button>
+                </div>
+              </article>
+            </section>
+            <section class="dash-grid thirds">
+              <article class="panel">
+                <div class="panel-title">
+                  <h2>Recent Bookings</h2>
+                  <button (click)="go('/organizer/events/summer/bookings')">View all</button>
+                </div>
+                <div class="mini-list">
+                  @for (
+                    b of [
+                      { n: 'Rohan Mehta', e: 'Summer Music Fest', a: '₹2,450' },
+                      { n: 'Neha Iyer', e: 'Food Carnival', a: '₹1,200' },
+                      { n: 'Vikram Singh', e: 'League Final', a: '₹3,600' },
+                    ];
+                    track b.n
+                  ) {
+                    <div>
+                      <span class="avatar sm">{{ b.n[0] }}</span>
+                      <p>
+                        <b>{{ b.n }}</b
+                        ><small>{{ b.e }}</small>
+                      </p>
+                      <strong>{{ b.a }}</strong>
+                    </div>
+                  }
+                </div>
+              </article>
+              <article class="panel chart-card">
+                <div class="panel-title">
+                  <h2>Revenue Snapshot</h2>
+                  <button (click)="go('/organizer/reports')">View report</button>
+                </div>
+                <b class="big-money">₹8,45,230</b><span class="up">↑ 22.7% from last month</span>
+                <div class="chart"><i></i></div>
+              </article>
+              <article class="panel">
+                <div class="panel-title">
+                  <h2>Notifications</h2>
+                  <button (click)="go('/organizer/notifications')">View all</button>
+                </div>
+                <div class="notice-list">
+                  <p>
+                    <i class="green">✓</i
+                    ><span><b>Summer Music Fest approved</b><small>2m ago</small></span>
+                  </p>
+                  <p>
+                    <i class="orange">◷</i
+                    ><span><b>Food Carnival pending approval</b><small>15m ago</small></span>
+                  </p>
+                  <p>
+                    <i class="blue">◆</i
+                    ><span><b>New booking received</b><small>35m ago</small></span>
+                  </p>
+                </div>
+              </article>
+            </section>
+          }
+
+          @case ('my-events') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT MANAGEMENT</span>
+                <h1>My Events</h1>
+                <p>Create, filter and manage all of your events from one place.</p>
+              </div>
+              <button class="primary" (click)="go('/organizer/events/create/type')">
+                ＋ Create Event
+              </button>
+            </section>
+            <article class="panel">
+              <div class="toolbar">
+                <div class="searchbox">
+                  ⌕
+                  <input
+                    placeholder="Search events..."
+                    [ngModel]="query()"
+                    (ngModelChange)="query.set($event)"
+                  />
+                </div>
+                <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+                  <option>All</option>
+                  <option>Approved</option>
+                  <option>Pending</option>
+                  <option>Draft</option></select
+                ><button class="ghost" type="button" (click)="flash('Status filter is ready')">
+                  ☷ Filters
+                </button>
+              </div>
+              <div class="event-cards">
+                @for (e of filteredEvents(); track e.id) {
+                  <article>
+                    <div class="card-image">
+                      <img [src]="e.image" /><span
+                        class="status"
+                        [class.pending]="e.status === 'Pending'"
+                        [class.draft]="e.status === 'Draft'"
+                        >{{ e.status }}</span
+                      >
+                    </div>
+                    <div>
+                      <span class="tag">{{ e.type }}</span>
+                      <h3>{{ e.title }}</h3>
+                      <p>{{ e.venue }}</p>
+                      <small>{{ e.date }}</small>
+                      <div class="card-metrics">
+                        <span
+                          ><b>{{ e.bookings }}</b
+                          >Bookings</span
+                        ><span
+                          ><b>{{ e.revenue }}</b
+                          >Revenue</span
+                        >
+                      </div>
+                      <div class="card-actions">
+                        <button (click)="go('/organizer/events/' + e.id)">Manage Event</button
+                        ><button
+                          class="icon-more"
+                          type="button"
+                          [attr.aria-label]="'More actions for ' + e.title"
+                          (click)="flash(e.title + ' actions opened')"
+                        >
+                          •••
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                }
+              </div>
+            </article>
+          }
+
+          @case ('create-type') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Choose Event Type',
+                  sub: 'Select the format that best matches your event.',
+                  body: 'type',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-details') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Event Details',
+                  sub: 'Add the essential information customers will see.',
+                  body: 'details',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-seats') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Seats or Capacity',
+                  sub: 'Configure a seat map or a general-entry capacity.',
+                  body: 'seats',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-pricing') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Ticket Type & Pricing',
+                  sub: 'Create ticket tiers, prices and sales limits.',
+                  body: 'pricing',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-parking') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Parking Allocation',
+                  sub: 'Optionally add parking zones and reservable slots.',
+                  body: 'parking',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-poster') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Poster & QR Setup',
+                  sub: 'Give your event a polished visual identity.',
+                  body: 'poster',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-review') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Review Event',
+                  sub: 'Check everything before sending it to the admin.',
+                  body: 'review',
+                }
+              "
+            ></ng-container>
+          }
+          @case ('create-submit') {
+            <ng-container
+              *ngTemplateOutlet="
+                wizard;
+                context: {
+                  title: 'Submit for Approval',
+                  sub: 'Your event is ready for admin review.',
+                  body: 'submit',
+                }
+              "
+            ></ng-container>
+          }
+
+          @case ('event-detail') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">MANAGE EVENT</span>
+                <h1>Summer Music Fest</h1>
+                <p>SoundWave Arena • 24 May 2026 • 6:00 PM</p>
+              </div>
+              <div class="head-actions">
+                <button class="ghost" (click)="go('/organizer/events/summer/edit')">
+                  ✎ Edit Event</button
+                ><button class="primary" (click)="go('/organizer/events/summer/poster-qr')">
+                  Poster / QR
+                </button>
+              </div>
+            </section>
+            <section class="event-hero panel">
+              <img src="/assets/concert-hero.webp" />
+              <div>
+                <span class="status">Approved</span>
+                <h2>Summer Music Fest 2026</h2>
+                <p>
+                  A premium live music experience with assigned seating, VIP ticket tiers and
+                  optional event parking.
+                </p>
+                <div class="hero-meta">
+                  <span>▣ Concert</span><span>♙ Seat Based</span><span>Ⓟ Parking Enabled</span>
+                </div>
+              </div>
+            </section>
+            <section class="stats four">
+              <article>
+                <i class="purple">◆</i><small>Bookings</small><b>256</b><span>68% sold</span>
+              </article>
+              <article>
+                <i class="blue">♙</i><small>Seats Sold</small><b>512</b><span>240 remaining</span>
+              </article>
+              <article>
+                <i class="green">Ⓟ</i><small>Parking</small><b>86</b><span>slots reserved</span>
+              </article>
+              <article>
+                <i class="orange">₹</i><small>Revenue</small><b>₹4,86,400</b><span>+12.3%</span>
+              </article>
+            </section>
+            <section class="dash-grid">
+              <article class="panel span2">
+                <div class="panel-title">
+                  <h2>Event Operations</h2>
+                  <button (click)="go('/organizer/events/summer/bookings')">View bookings</button>
+                </div>
+                <div class="ops-grid">
+                  <button (click)="go('/organizer/events/summer/seats')">
+                    ♙<b>Seat Allocation</b><small>512 / 752 sold</small></button
+                  ><button (click)="go('/organizer/events/summer/ticket-pricing')">
+                    ◆<b>Ticket Pricing</b><small>4 ticket tiers</small></button
+                  ><button (click)="go('/organizer/events/summer/parking-setup')">
+                    Ⓟ<b>Parking Setup</b><small>86 / 120 reserved</small></button
+                  ><button (click)="go('/organizer/events/summer/reports')">
+                    ▥<b>Reports</b><small>Live performance</small>
+                  </button>
+                </div>
+              </article>
+              <article class="panel">
+                <h2>Approval Status</h2>
+                <div class="approval-card">
+                  <i>✓</i><b>Approved</b>
+                  <p>Approved by Kavin Kumar on 12 May 2026.</p>
+                  <span>No further action required.</span>
+                </div>
+              </article>
+            </section>
+          }
+
+          @case ('event-edit') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT OPERATIONS</span>
+                <h1>Manage Event Setup</h1>
+                <p>Edit seating, pricing and parking without losing context.</p>
+              </div>
+              <button class="primary" (click)="flash('Changes saved')">Save Changes</button>
+            </section>
+            <section class="tabs">
+              <button class="active" type="button" (click)="go('/organizer/events/summer/seats')">
+                Seat Allocation</button
+              ><button type="button" (click)="go('/organizer/events/summer/ticket-pricing')">
+                Ticket Pricing</button
+              ><button type="button" (click)="go('/organizer/events/summer/parking-setup')">
+                Parking</button
+              ><button type="button" (click)="go('/organizer/events/summer/edit')">
+                Event Details
+              </button>
+            </section>
+            <section class="split-layout">
+              <article class="panel seat-editor">
+                <div class="panel-title">
+                  <div>
+                    <h2>Seat Allocation</h2>
+                    <p>Stage-facing layout • click seats to change state</p>
+                  </div>
+                  <span class="legend"
+                    ><i class="available"></i>Available <i class="selected"></i>VIP
+                    <i class="blocked"></i>Blocked</span
+                  >
+                </div>
+                <div class="stage">STAGE</div>
+                <div class="seat-grid">
+                  @for (_ of seatCells; track $index) {
+                    <button
+                      type="button"
+                      [class.vip]="$index % 11 === 0 || selectedSeatIndex() === $index"
+                      [class.blocked]="$index % 17 === 0"
+                      [disabled]="$index % 17 === 0"
+                      (click)="selectSeat($index)"
+                    >
+                      {{ seatLabel($index) }}
+                    </button>
+                  }
+                </div>
+              </article>
+              <aside class="panel config-panel">
+                <h2>Selection Settings</h2>
+                <label
+                  >Seat Category<select>
+                    <option>Standard</option>
+                    <option>Premium</option>
+                    <option>VIP</option>
+                  </select></label
+                ><label>Price<input value="1499" /></label
+                ><label>Row Label<input value="A - H" /></label
+                ><button class="primary" (click)="flash('Seat configuration updated')">
+                  Apply to Selected
+                </button>
+                <hr />
+                <h3>Layout Summary</h3>
+                <p><span>Total Seats</span><b>752</b></p>
+                <p><span>Available</span><b>240</b></p>
+                <p><span>Reserved</span><b>512</b></p>
+              </aside>
+            </section>
+          }
+
+          @case ('seat-manage') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT OPERATIONS</span>
+                <h1>Seat Allocation Management</h1>
+                <p>Summer Music Fest • configure seats, categories and blocked positions.</p>
+              </div>
+              <button class="primary" (click)="flash('Seat layout saved')">Save Layout</button>
+            </section>
+            <section class="split-layout">
+              <article class="panel seat-editor">
+                <div class="panel-title">
+                  <div>
+                    <h2>Interactive Seat Layout</h2>
+                    <p>752 total seats • click to select seats or blocks</p>
+                  </div>
+                  <span class="legend"
+                    ><i class="available"></i>Standard <i class="selected"></i>VIP
+                    <i class="blocked"></i>Blocked</span
+                  >
+                </div>
+                <div class="stage">STAGE</div>
+                <div class="seat-grid">
+                  @for (_ of seatCells; track $index) {
+                    <button
+                      type="button"
+                      [class.vip]="$index % 11 === 0 || selectedSeatIndex() === $index"
+                      [class.blocked]="$index % 17 === 0"
+                      [disabled]="$index % 17 === 0"
+                      (click)="selectSeat($index)"
+                    >
+                      {{ seatLabel($index) }}
+                    </button>
+                  }
+                </div>
+              </article>
+              <aside class="panel config-panel">
+                <h2>Seat Tools</h2>
+                <label
+                  >Selected Category<select>
+                    <option>Standard</option>
+                    <option>Premium</option>
+                    <option>VIP</option>
+                  </select></label
+                ><label>Price<input value="1499" /></label
+                ><button class="primary" (click)="flash('Seat category applied')">
+                  Apply Category</button
+                ><button class="ghost" (click)="flash('Selected seats blocked')">
+                  Block Selected
+                </button>
+                <hr />
+                <p><span>Configured</span><b>752 seats</b></p>
+                <p><span>VIP</span><b>100</b></p>
+                <p><span>Blocked</span><b>8</b></p>
+              </aside>
+            </section>
+          }
+
+          @case ('pricing-manage') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT OPERATIONS</span>
+                <h1>Ticket Pricing Setup</h1>
+                <p>Manage ticket tiers, prices, limits and benefits.</p>
+              </div>
+              <button class="primary" (click)="flash('Ticket pricing saved')">Save Pricing</button>
+            </section>
+            <article class="panel">
+              <div class="pricing-list">
+                @for (
+                  t of [
+                    { n: 'Standard', p: '799', q: '400', c: 'blue', perk: 'General entry' },
+                    { n: 'Premium', p: '1499', q: '250', c: 'purple', perk: 'Priority entry' },
+                    { n: 'VIP', p: '1999', q: '100', c: 'orange', perk: 'VIP gate + lounge' },
+                  ];
+                  track t.n
+                ) {
+                  <div>
+                    <i [class]="t.c">◆</i><input [value]="t.n" /><label
+                      >Price (LKR)<input [value]="t.p" /></label
+                    ><label>Sales Limit<input [value]="t.q" /></label
+                    ><button type="button" (click)="flash(t.n + ' actions opened')">•••</button
+                    ><small class="pricing-perk">{{ t.perk }}</small>
+                  </div>
+                }
+                <button class="add-row" type="button" (click)="flash('New ticket type added')">
+                  ＋ Add Ticket Type
+                </button>
+              </div>
+            </article>
+          }
+
+          @case ('parking-manage') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT OPERATIONS</span>
+                <h1>Parking Allocation Setup</h1>
+                <p>Configure event parking capacity, fees and reservable slot layout.</p>
+              </div>
+              <button class="primary" (click)="flash('Parking setup saved')">Save Parking</button>
+            </section>
+            <section class="split-layout">
+              <article class="panel">
+                <div class="panel-title">
+                  <div>
+                    <h2>Parking Slot Map</h2>
+                    <p>120 reservable spaces • optional add-on</p>
+                  </div>
+                  <span class="status">Enabled</span>
+                </div>
+                <div class="parking-map">
+                  @for (_ of parkingCells; track $index) {
+                    <button
+                      type="button"
+                      [class.occupied]="$index % 9 === 0"
+                      [class.reserved]="$index % 7 === 0 || selectedParkingIndex() === $index"
+                      [disabled]="$index % 9 === 0"
+                      (click)="selectParking($index)"
+                    >
+                      {{ slotLabel($index) }}
+                    </button>
+                  }
+                </div>
+                <div class="map-legend">
+                  <span><i class="available"></i>Available</span
+                  ><span><i class="selected"></i>Reserved</span
+                  ><span><i class="blocked"></i>Unavailable</span>
+                </div>
+              </article>
+              <aside class="panel config-panel">
+                <h2>Parking Rules</h2>
+                <label class="switch-row"
+                  ><span><b>Enable Parking</b><small>Optional during customer booking</small></span
+                  ><input type="checkbox" checked /></label
+                ><label>Parking Fee<input value="300" /></label
+                ><label
+                  >Maximum per Booking<select>
+                    <option>1 slot</option>
+                  </select></label
+                ><label>Reservation Start<input type="time" value="16:00" /></label
+                ><button class="ghost" (click)="flash('Parking zones regenerated')">
+                  Regenerate Zones
+                </button>
+              </aside>
+            </section>
+          }
+
+          @case ('poster-qr') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT BRANDING</span>
+                <h1>Poster & QR Setup</h1>
+                <p>Create the promotional assets and check-in QR for your event.</p>
+              </div>
+              <button class="primary" (click)="flash('Assets saved')">Save Assets</button>
+            </section>
+            <section class="split-layout">
+              <article class="panel poster-studio">
+                <div class="poster-preview">
+                  <img src="/assets/concert-hero.webp" />
+                  <div>
+                    <span>LIVE • 24 MAY</span>
+                    <h2>SUMMER<br />MUSIC FEST</h2>
+                    <p>SoundWave Arena</p>
+                  </div>
+                </div>
+                <div class="upload-zone">
+                  ⇧<b>Upload Event Poster</b><span>PNG, JPG or WEBP • Recommended 1600×900</span
+                  ><button
+                    class="ghost"
+                    type="button"
+                    (click)="flash('Choose an image during backend integration')"
+                  >
+                    Choose Image
+                  </button>
+                </div>
+              </article>
+              <aside class="panel qr-studio">
+                <span class="eyebrow">CHECK-IN QR</span>
+                <h2>Event QR Code</h2>
+                <div class="fake-qr">▦</div>
+                <b>Summer Music Fest</b><small>EVT-SMF-2026-0524</small
+                ><button class="primary" (click)="flash('QR downloaded')">⇩ Download QR</button
+                ><button class="ghost" (click)="flash('QR copied')">Copy Event Link</button>
+              </aside>
+            </section>
+          }
+
+          @case ('approvals') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">ADMIN REVIEW</span>
+                <h1>Approval Status</h1>
+                <p>Track submitted events and review administrator notes.</p>
+              </div>
+            </section>
+            <article class="panel">
+              <div class="approval-timeline">
+                @for (
+                  a of [
+                    {
+                      t: 'Summer Music Fest',
+                      s: 'Approved',
+                      d: 'Approved 12 May',
+                      n: 'Everything looks good. Event is live.',
+                    },
+                    {
+                      t: 'Food Carnival 2026',
+                      s: 'Pending',
+                      d: 'Submitted 14 May',
+                      n: 'Currently in admin review.',
+                    },
+                    {
+                      t: 'Art & Craft Expo',
+                      s: 'Rejected',
+                      d: 'Reviewed 09 May',
+                      n: 'Please update venue capacity and resubmit.',
+                    },
+                  ];
+                  track a.t
+                ) {
+                  <div>
+                    <span
+                      class="status"
+                      [class.pending]="a.s === 'Pending'"
+                      [class.rejected]="a.s === 'Rejected'"
+                      >{{ a.s }}</span
+                    >
+                    <p>
+                      <b>{{ a.t }}</b
+                      ><small>{{ a.d }}</small
+                      ><em>{{ a.n }}</em>
+                    </p>
+                    <button class="ghost" (click)="flash(a.t + ' opened')">View Details</button>
+                  </div>
+                }
+              </div>
+            </article>
+          }
+
+          @case ('event-bookings') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">ATTENDEES</span>
+                <h1>Event Bookings</h1>
+                <p>Summer Music Fest • 256 confirmed bookings</p>
+              </div>
+              <button class="primary" (click)="flash('Attendee CSV exported')">⇩ Export CSV</button>
+            </section>
+            <article class="panel">
+              <div class="toolbar">
+                <div class="searchbox">⌕ <input placeholder="Search attendee or booking ID" /></div>
+                <select>
+                  <option>All Statuses</option>
+                  <option>Confirmed</option>
+                  <option>Cancelled</option></select
+                ><button class="ghost" type="button" (click)="flash('Booking filters applied')">
+                  Filters
+                </button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ATTENDEE</th>
+                    <th>BOOKING ID</th>
+                    <th>TICKETS</th>
+                    <th>SEATS</th>
+                    <th>PARKING</th>
+                    <th>AMOUNT</th>
+                    <th>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (
+                    b of [
+                      {
+                        n: 'Rohan Mehta',
+                        id: 'BKG-10078',
+                        t: '2 VIP',
+                        s: 'A1, A2',
+                        p: 'B27',
+                        a: '₹3,298',
+                      },
+                      {
+                        n: 'Neha Iyer',
+                        id: 'BKG-10081',
+                        t: '1 Premium',
+                        s: 'B14',
+                        p: '—',
+                        a: '₹1,499',
+                      },
+                      {
+                        n: 'Vikram Singh',
+                        id: 'BKG-10089',
+                        t: '4 Standard',
+                        s: 'C1–C4',
+                        p: 'A12',
+                        a: '₹3,496',
+                      },
+                      {
+                        n: 'Aisha Khan',
+                        id: 'BKG-10092',
+                        t: '2 Premium',
+                        s: 'D6, D7',
+                        p: 'B18',
+                        a: '₹3,298',
+                      },
+                    ];
+                    track b.id
+                  ) {
+                    <tr>
+                      <td>
+                        <div class="person">
+                          <span class="avatar sm">{{ b.n[0] }}</span
+                          ><b>{{ b.n }}</b>
+                        </div>
+                      </td>
+                      <td>{{ b.id }}</td>
+                      <td>{{ b.t }}</td>
+                      <td>{{ b.s }}</td>
+                      <td>{{ b.p }}</td>
+                      <td>
+                        <b>{{ b.a }}</b>
+                      </td>
+                      <td><span class="status">Confirmed</span></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </article>
+          }
+
+          @case ('event-reports') {
+            <ng-container *ngTemplateOutlet="reportsTpl; context: { admin: false }"></ng-container>
+          }
+          @case ('reports') {
+            <ng-container *ngTemplateOutlet="reportsTpl; context: { admin: false }"></ng-container>
+          }
+          @case ('notifications') {
+            <ng-container
+              *ngTemplateOutlet="notificationsTpl; context: { admin: false }"
+            ></ng-container>
+          }
+          @case ('profile') {
+            <ng-container *ngTemplateOutlet="profileTpl; context: { admin: false }"></ng-container>
+          }
+          @case ('settings') {
+            <ng-container *ngTemplateOutlet="settingsTpl; context: { admin: false }"></ng-container>
+          }
+        }
+      } @else {
+        @switch (view()) {
+          @case ('dashboard') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">SYSTEM OVERVIEW</span>
+                <h1>Welcome back, Kavin! 👋</h1>
+                <p>Review approvals, bookings, payments and system activity at a glance.</p>
+              </div>
+              <button class="primary" (click)="flash('Report exported')">⇩ Export Report</button>
+            </section>
+            <section class="stats four">
+              <article>
+                <i class="green">▣</i><small>Total Events</small><b>128</b><span>↑ 12.5%</span>
+              </article>
+              <article>
+                <i class="orange">✓</i><small>Pending Approvals</small><b>16</b
+                ><span>Needs review</span>
+              </article>
+              <article>
+                <i class="blue">◆</i><small>Total Bookings</small><b>842</b><span>↑ 18.3%</span>
+              </article>
+              <article>
+                <i class="green">₹</i><small>Revenue</small><b>₹8,45,230</b><span>↑ 22.7%</span>
+              </article>
+            </section>
+            <section class="dash-grid">
+              <article class="panel span2">
+                <div class="panel-title">
+                  <div>
+                    <h2>Pending Approvals</h2>
+                    <p>Events waiting for administrator action</p>
+                  </div>
+                  <button (click)="go('/admin/approvals')">View all</button>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>EVENT</th>
+                      <th>ORGANIZER</th>
+                      <th>TYPE</th>
+                      <th>REQUESTED</th>
+                      <th>STATUS</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (
+                      a of [
+                        { e: 'AR Rahman Live in Chennai', o: 'Music Wave', t: 'Seat Based' },
+                        { e: 'Rock Fest 2026', o: 'Live Nation', t: 'Seat Based' },
+                        { e: 'B2B Conference', o: 'BizConnect', t: 'Non-Seat' },
+                        { e: 'Cricket League Final', o: 'Chennai Sports', t: 'Seat Based' },
+                      ];
+                      track a.e
+                    ) {
+                      <tr>
+                        <td>
+                          <b>{{ a.e }}</b>
+                        </td>
+                        <td>{{ a.o }}</td>
+                        <td>
+                          <span class="tag">{{ a.t }}</span>
+                        </td>
+                        <td>15 May 2026</td>
+                        <td><span class="status pending">Pending</span></td>
+                        <td>
+                          <button class="approve" (click)="openAction(a.e, 'approve')">✓</button
+                          ><button class="reject" (click)="openAction(a.e, 'reject')">×</button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </article>
+              <article class="panel">
+                <h2>System Overview</h2>
+                <div class="donut">
+                  <span><b>186</b>Total</span>
+                </div>
+                <div class="legend">
+                  <p><i class="green"></i>Approved <b>128</b></p>
+                  <p><i class="orange"></i>Pending <b>16</b></p>
+                  <p><i class="red"></i>Rejected <b>42</b></p>
+                </div>
+              </article>
+            </section>
+            <section class="dash-grid thirds">
+              <article class="panel">
+                <div class="panel-title">
+                  <h2>Recent Activity</h2>
+                  <button type="button" (click)="go('/admin/notifications')">View all</button>
+                </div>
+                <div class="notice-list">
+                  <p>
+                    <i class="green">✓</i
+                    ><span><b>Summer Music Fest approved</b><small>10m ago</small></span>
+                  </p>
+                  <p>
+                    <i class="blue">♙</i
+                    ><span><b>New organizer registered</b><small>35m ago</small></span>
+                  </p>
+                  <p>
+                    <i class="orange">₹</i><span><b>Payment received</b><small>1h ago</small></span>
+                  </p>
+                </div>
+              </article>
+              <article class="panel">
+                <h2>Recent Payments</h2>
+                <div class="mini-list">
+                  @for (
+                    p of [
+                      { e: 'AR Rahman Live', o: 'Music Wave', a: '₹3,45,000' },
+                      { e: 'Rock Fest 2026', o: 'Live Nation', a: '₹2,10,000' },
+                      { e: 'B2B Conference', o: 'BizConnect', a: '₹1,25,000' },
+                    ];
+                    track p.e
+                  ) {
+                    <div>
+                      <p>
+                        <b>{{ p.e }}</b
+                        ><small>{{ p.o }}</small>
+                      </p>
+                      <strong>{{ p.a }}</strong
+                      ><span class="status">Paid</span>
+                    </div>
+                  }
+                </div>
+              </article>
+              <article class="panel">
+                <h2>Quick Actions</h2>
+                <div class="quick-grid">
+                  <button (click)="go('/admin/events/create')">＋<span>Create Event</span></button
+                  ><button (click)="go('/admin/approvals')">✓<span>Review Approvals</span></button
+                  ><button (click)="go('/admin/bookings')">◆<span>View Bookings</span></button
+                  ><button (click)="go('/admin/parking')">Ⓟ<span>Manage Parking</span></button>
+                </div>
+              </article>
+            </section>
+          }
+
+          @case ('properties') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">VENUE MANAGEMENT</span>
+                <h1>Properties & Venues</h1>
+                <p>Manage event locations, seat capacities and parking facilities.</p>
+              </div>
+              <button class="primary" (click)="go('/admin/properties/create')">
+                ＋ Add Property
+              </button>
+            </section>
+            <article class="panel">
+              <div class="toolbar">
+                <div class="searchbox">
+                  ⌕ <input placeholder="Search properties or location..." />
+                </div>
+                <select>
+                  <option>All Locations</option>
+                  <option>Chennai</option>
+                  <option>Bangalore</option></select
+                ><button class="ghost" type="button" (click)="flash('Property filters applied')">
+                  ☷ Filters
+                </button>
+              </div>
+              <div class="property-grid">
+                @for (
+                  p of [
+                    {
+                      id: 'soundwave',
+                      n: 'SoundWave Arena',
+                      l: 'Chennai',
+                      c: '8,500',
+                      s: '7,800',
+                      pk: '620',
+                      img: '/assets/concert-hero.webp',
+                    },
+                    {
+                      id: 'city',
+                      n: 'City Convention Centre',
+                      l: 'Bangalore',
+                      c: '4,200',
+                      s: '3,800',
+                      pk: '260',
+                      img: '/assets/event-grid.webp',
+                    },
+                    {
+                      id: 'marina',
+                      n: 'Marina Sports Arena',
+                      l: 'Chennai',
+                      c: '12,000',
+                      s: '10,500',
+                      pk: '1,100',
+                      img: '/assets/smart-parking.webp',
+                    },
+                  ];
+                  track p.id
+                ) {
+                  <article>
+                    <img [src]="p.img" />
+                    <div>
+                      <span class="status">Active</span>
+                      <h3>{{ p.n }}</h3>
+                      <p>⌖ {{ p.l }}</p>
+                      <div>
+                        <span
+                          ><b>{{ p.c }}</b
+                          >Capacity</span
+                        ><span
+                          ><b>{{ p.s }}</b
+                          >Seats</span
+                        ><span
+                          ><b>{{ p.pk }}</b
+                          >Parking</span
+                        >
+                      </div>
+                      <button (click)="go('/admin/properties/' + p.id)">View Property</button>
+                    </div>
+                  </article>
+                }
+              </div>
+            </article>
+          }
+          @case ('property-form') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">PROPERTY SETUP</span>
+                <h1>{{ router.url.includes('/edit') ? 'Edit' : 'Add' }} Property</h1>
+                <p>Configure venue information, capacity and parking availability.</p>
+              </div>
+            </section>
+            <section class="form-layout">
+              <article class="panel form-card">
+                <h2>Property Information</h2>
+                <div class="form-grid">
+                  <label>Property Name<input value="SoundWave Arena" /></label
+                  ><label>City<input value="Chennai" /></label
+                  ><label class="full"
+                    >Address<textarea>12 Marina Link Road, Chennai</textarea></label
+                  ><label>Total Capacity<input type="number" value="8500" /></label
+                  ><label>Seat Capacity<input type="number" value="7800" /></label
+                  ><label>Parking Capacity<input type="number" value="620" /></label
+                  ><label
+                    >Property Status<select>
+                      <option>Active</option>
+                      <option>Inactive</option>
+                    </select></label
+                  >
+                </div>
+                <div class="form-actions">
+                  <button class="ghost" (click)="go('/admin/properties')">Cancel</button
+                  ><button class="primary" (click)="flash('Property saved successfully')">
+                    Save Property
+                  </button>
+                </div>
+              </article>
+              <aside class="panel visual-card">
+                <img src="/assets/smart-parking.webp" />
+                <h3>Capacity Preview</h3>
+                <p><span>Event capacity</span><b>8,500</b></p>
+                <p><span>Seat capacity</span><b>7,800</b></p>
+                <p><span>Parking slots</span><b>620</b></p>
+              </aside>
+            </section>
+          }
+          @case ('property-detail') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">PROPERTY DETAIL</span>
+                <h1>SoundWave Arena</h1>
+                <p>12 Marina Link Road, Chennai</p>
+              </div>
+              <button class="primary" (click)="go('/admin/properties/soundwave/edit')">
+                ✎ Edit Property
+              </button>
+            </section>
+            <section class="event-hero panel property-hero">
+              <img src="/assets/smart-parking.webp" />
+              <div>
+                <span class="status">Active</span>
+                <h2>Premium Event & Parking Venue</h2>
+                <p>
+                  Large-format arena with assigned seating, multiple entry gates and structured
+                  event parking zones.
+                </p>
+                <div class="hero-meta">
+                  <span>8,500 Capacity</span><span>7,800 Seats</span><span>620 Parking Slots</span>
+                </div>
+              </div>
+            </section>
+            <section class="dash-grid">
+              <article class="panel span2">
+                <h2>Upcoming Events</h2>
+                <div class="event-list">
+                  @for (e of organizerEvents.slice(0, 3); track e.id) {
+                    <div class="event-row">
+                      <img [src]="e.image" />
+                      <div class="event-main">
+                        <b>{{ e.title }}</b
+                        ><small>{{ e.date }}</small>
+                      </div>
+                      <span class="status">{{ e.status }}</span
+                      ><strong>{{ e.bookings }} bookings</strong>
+                    </div>
+                  }
+                </div>
+              </article>
+              <article class="panel">
+                <h2>Utilization</h2>
+                <div class="progress-card">
+                  <p><span>Seat usage</span><b>76%</b></p>
+                  <i><em style="width: 76%"></em></i>
+                  <p><span>Parking usage</span><b>64%</b></p>
+                  <i><em style="width: 64%"></em></i>
+                </div>
+              </article>
+            </section>
+          }
+
+          @case ('organizers') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">ORGANIZER MANAGEMENT</span>
+                <h1>Organizers</h1>
+                <p>Review organizer accounts, verification status and performance.</p>
+              </div>
+            </section>
+            <article class="panel">
+              <div class="toolbar">
+                <div class="searchbox">⌕ <input placeholder="Search organizers..." /></div>
+                <select>
+                  <option>All Status</option>
+                  <option>Verified</option>
+                  <option>Pending</option>
+                </select>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ORGANIZER</th>
+                    <th>COMPANY</th>
+                    <th>EVENTS</th>
+                    <th>BOOKINGS</th>
+                    <th>VERIFICATION</th>
+                    <th>STATUS</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (
+                    o of [
+                      {
+                        id: 'arun',
+                        n: 'Arun Prakash',
+                        c: 'SoundWave Events',
+                        e: 12,
+                        b: '842',
+                        v: 'Verified',
+                      },
+                      {
+                        id: 'priya',
+                        n: 'Priya Menon',
+                        c: 'Live Nation',
+                        e: 8,
+                        b: '526',
+                        v: 'Verified',
+                      },
+                      {
+                        id: 'naveen',
+                        n: 'Naveen Kumar',
+                        c: 'BizConnect',
+                        e: 5,
+                        b: '298',
+                        v: 'Pending',
+                      },
+                      {
+                        id: 'suresh',
+                        n: 'Suresh R',
+                        c: 'Chennai Sports Club',
+                        e: 10,
+                        b: '1,240',
+                        v: 'Verified',
+                      },
+                    ];
+                    track o.id
+                  ) {
+                    <tr>
+                      <td>
+                        <div class="person">
+                          <span class="avatar sm">{{ o.n[0] }}</span
+                          ><b>{{ o.n }}</b>
+                        </div>
+                      </td>
+                      <td>{{ o.c }}</td>
+                      <td>{{ o.e }}</td>
+                      <td>{{ o.b }}</td>
+                      <td>
+                        <span class="status" [class.pending]="o.v === 'Pending'">{{ o.v }}</span>
+                      </td>
+                      <td><span class="status">Active</span></td>
+                      <td>
+                        <button class="ghost" (click)="go('/admin/organizers/' + o.id)">
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </article>
+          }
+          @case ('organizer-detail') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">ORGANIZER PROFILE</span>
+                <h1>Arun Prakash</h1>
+                <p>SoundWave Events • Verified organizer</p>
+              </div>
+              <button class="ghost" (click)="flash('Organizer status updated')">
+                Manage Status
+              </button>
+            </section>
+            <section class="profile-hero panel">
+              <div class="avatar xl">A</div>
+              <div>
+                <span class="status">Verified</span>
+                <h2>SoundWave Events</h2>
+                <p>arun@soundwave.lk • +94 77 123 4567</p>
+              </div>
+              <div class="profile-stats">
+                <span><b>12</b>Events</span><span><b>842</b>Bookings</span
+                ><span><b>₹8.45L</b>Revenue</span>
+              </div>
+            </section>
+            <section class="dash-grid">
+              <article class="panel span2">
+                <h2>Recent Events</h2>
+                <div class="event-list">
+                  @for (e of organizerEvents; track e.id) {
+                    <div class="event-row">
+                      <img [src]="e.image" />
+                      <div class="event-main">
+                        <b>{{ e.title }}</b
+                        ><small>{{ e.date }}</small>
+                      </div>
+                      <span class="status" [class.pending]="e.status === 'Pending'">{{
+                        e.status
+                      }}</span
+                      ><strong>{{ e.bookings }}</strong>
+                    </div>
+                  }
+                </div>
+              </article>
+              <article class="panel">
+                <h2>Verification</h2>
+                <div class="check-list">
+                  <p>✓ Identity verified</p>
+                  <p>✓ Business details verified</p>
+                  <p>✓ Payment profile active</p>
+                  <p>✓ No compliance flags</p>
+                </div>
+              </article>
+            </section>
+          }
+
+          @case ('events') {
+            <ng-container *ngTemplateOutlet="adminEventsTpl"></ng-container>
+          }
+          @case ('admin-event-form') {
+            <ng-container *ngTemplateOutlet="adminEventFormTpl"></ng-container>
+          }
+          @case ('admin-event-detail') {
+            <ng-container *ngTemplateOutlet="adminEventDetailTpl"></ng-container>
+          }
+          @case ('admin-layout') {
+            <section class="page-head">
+              <div>
+                <span class="eyebrow">EVENT LAYOUT MANAGEMENT</span>
+                <h1>Seat & Parking Layout</h1>
+                <p>
+                  Summer Music Fest • manage availability and capacity from one visual workspace.
+                </p>
+              </div>
+              <button class="primary" (click)="flash('Event layouts saved')">
+                Save Layout Changes
+              </button>
+            </section>
+            <section class="tabs">
+              <button class="active" type="button" (click)="flash('Seat layout selected')">
+                Seat Layout</button
+              ><button type="button" (click)="go('/admin/parking')">Parking Layout</button
+              ><button type="button" (click)="flash('Capacity rules opened')">
+                Capacity Rules
+              </button>
+            </section>
+            <section class="split-layout">
+              <article class="panel seat-editor">
+                <div class="panel-title">
+                  <div>
+                    <h2>Seat Map</h2>
+                    <p>Available / VIP / blocked state preview</p>
+                  </div>
+                  <span class="legend"
+                    ><i class="available"></i>Available <i class="selected"></i>VIP
+                    <i class="blocked"></i>Blocked</span
+                  >
+                </div>
+                <div class="stage">STAGE</div>
+                <div class="seat-grid">
+                  @for (_ of seatCells; track $index) {
+                    <button
+                      type="button"
+                      [class.vip]="$index % 10 === 0 || selectedSeatIndex() === $index"
+                      [class.blocked]="$index % 19 === 0"
+                      [disabled]="$index % 19 === 0"
+                      (click)="selectSeat($index)"
+                    >
+                      {{ seatLabel($index) }}
+                    </button>
+                  }
+                </div>
+              </article>
+              <aside class="panel config-panel">
+                <h2>Layout Summary</h2>
+                <p><span>Total Seats</span><b>752</b></p>
+                <p><span>Available</span><b>240</b></p>
+                <p><span>Reserved</span><b>504</b></p>
+                <p><span>Blocked</span><b>8</b></p>
+                <hr />
+                <h3>Parking Capacity</h3>
+                <p><span>Total Slots</span><b>120</b></p>
+                <p><span>Reserved</span><b>86</b></p>
+                <button class="ghost" (click)="go('/admin/parking')">Open Parking Manager</button>
+              </aside>
+            </section>
+          }
+
+          @case ('admin-approvals') {
+            <ng-container *ngTemplateOutlet="adminApprovalsTpl"></ng-container>
+          }
+          @case ('approval-detail') {
+            <ng-container *ngTemplateOutlet="approvalDetailTpl"></ng-container>
+          }
+          @case ('admin-bookings') {
+            <ng-container *ngTemplateOutlet="bookingsAdminTpl"></ng-container>
+          }
+          @case ('booking-detail') {
+            <ng-container *ngTemplateOutlet="bookingDetailTpl"></ng-container>
+          }
+          @case ('admin-payments') {
+            <ng-container *ngTemplateOutlet="paymentsAdminTpl"></ng-container>
+          }
+          @case ('payment-detail') {
+            <ng-container *ngTemplateOutlet="paymentDetailTpl"></ng-container>
+          }
+          @case ('admin-parking') {
+            <ng-container *ngTemplateOutlet="parkingAdminTpl"></ng-container>
+          }
+          @case ('admin-reports') {
+            <ng-container *ngTemplateOutlet="reportsTpl; context: { admin: true }"></ng-container>
+          }
+          @case ('categories') {
+            <ng-container *ngTemplateOutlet="categoriesTpl"></ng-container>
+          }
+          @case ('admin-notifications') {
+            <ng-container
+              *ngTemplateOutlet="notificationsTpl; context: { admin: true }"
+            ></ng-container>
+          }
+          @case ('admin-settings') {
+            <ng-container *ngTemplateOutlet="settingsTpl; context: { admin: true }"></ng-container>
+          }
+        }
+      }
+    </div>
+  </main>
+
+  @if (showModal()) {
+    <div class="modal-bg" (click)="showModal.set(false)">
+      <article class="modal" (click)="$event.stopPropagation()">
+        <button class="modal-x" (click)="showModal.set(false)">×</button
+        ><span class="modal-icon" [class.danger]="modalMode() !== 'approve'">{{
+          modalMode() === 'approve' ? '✓' : '!'
+        }}</span>
+        <h2>{{ modalMode() === 'approve' ? 'Approve' : 'Reject' }} Request?</h2>
+        <p>{{ selectedName() }}</p>
+        @if (modalMode() === 'reject') {
+          <label>Reason<textarea placeholder="Add a clear rejection note..."></textarea></label>
+        }
+        <div>
+          <button class="ghost" (click)="showModal.set(false)">Cancel</button
+          ><button
+            class="primary"
+            [class.danger-btn]="modalMode() !== 'approve'"
+            (click)="confirmAction()"
+          >
+            Confirm {{ modalMode() === 'approve' ? 'Approval' : 'Rejection' }}
+          </button>
+        </div>
+      </article>
+    </div>
+  }
+  @if (toast()) {
+    <div class="toast">✓ {{ toast() }}</div>
+  }
+</div>
+
+<ng-template #wizard let-title="title" let-sub="sub" let-body="body">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">CREATE EVENT • STEP {{ activeWizardStep() }} OF 8</span>
+      <h1>{{ title }}</h1>
+      <p>{{ sub }}</p>
+    </div>
+    <button class="ghost" (click)="flash('Draft saved')">Save Draft</button>
+  </section>
+  <article class="panel wizard">
+    <div class="wizard-progress">
+      @for (s of [1, 2, 3, 4, 5, 6, 7, 8]; track s) {
+        <span [class.active]="s === activeWizardStep()" [class.done]="s < activeWizardStep()"
+          ><i>{{ s < activeWizardStep() ? '✓' : s }}</i
+          ><small>{{
+            ['Type', 'Details', 'Layout', 'Pricing', 'Parking', 'Poster', 'Review', 'Submit'][s - 1]
+          }}</small></span
+        >
+      }
+    </div>
+    @switch (body) {
+      @case ('type') {
+        <div class="choice-grid">
+          <button
+            type="button"
+            [class.selected]="selectedWizardType() === 'seat'"
+            (click)="selectedWizardType.set('seat')"
+          >
+            <i>♙</i>
+            <h3>Seat Based Event</h3>
+            <p>Reserved seating with visual seat allocation and ticket tiers.</p>
+            <span>Selected ✓</span></button
+          ><button
+            type="button"
+            [class.selected]="selectedWizardType() === 'general'"
+            (click)="selectedWizardType.set('general')"
+          >
+            <i>◆</i>
+            <h3>Non-Seat Based Event</h3>
+            <p>General admission with a capacity limit and flexible ticket quantities.</p>
+            <span>Select</span>
+          </button>
+        </div>
+      }
+      @case ('details') {
+        <div class="form-grid">
+          <label>Event Name<input value="Summer Music Fest 2026" /></label
+          ><label
+            >Category<select>
+              <option>Concert</option>
+              <option>Sports</option>
+              <option>Conference</option>
+            </select></label
+          ><label
+            >Venue<select>
+              <option>SoundWave Arena</option>
+              <option>City Convention Centre</option>
+            </select></label
+          ><label>Date<input type="date" value="2026-05-24" /></label
+          ><label>Start Time<input type="time" value="18:00" /></label
+          ><label>End Time<input type="time" value="23:00" /></label
+          ><label class="full"
+            >Description<textarea>
+Experience an unforgettable night of live music, lights and premium hospitality.</textarea>
+          </label>
+        </div>
+      }
+      @case ('seats') {
+        <div class="setup-mode">
+          <button
+            type="button"
+            [class.active]="setupMode() === 'seat'"
+            (click)="setupMode.set('seat')"
+          >
+            ♙ Seat Based Layout</button
+          ><button
+            type="button"
+            [class.active]="setupMode() === 'general'"
+            (click)="setupMode.set('general')"
+          >
+            ◆ General Entry Capacity
+          </button>
+        </div>
+        <div class="layout-choice">
+          <div>
+            <h2>Seat Map Setup</h2>
+            <p>Choose a template and adjust rows, columns and seat categories.</p>
+            <div class="mini-stage">STAGE</div>
+            <div class="mini-seats">
+              @for (_ of miniSeatCells; track $index) {
+                <i [class.vip]="$index < 8"></i>
+              }
+            </div>
+          </div>
+          <aside>
+            <label>Rows<input type="number" value="8" /></label
+            ><label>Seats per row<input type="number" value="12" /></label
+            ><label>VIP Rows<input value="A, B" /></label
+            ><button class="ghost" (click)="flash('Layout regenerated')">Regenerate Layout</button>
+            <div class="capacity-note">
+              <b>Non-seat event?</b
+              ><span
+                >Switch to General Entry Capacity and enter the maximum ticket capacity instead of
+                building a seat map.</span
+              ><label>Capacity<input type="number" value="1200" /></label>
+            </div>
+          </aside>
+        </div>
+      }
+      @case ('pricing') {
+        <div class="pricing-list">
+          @for (
+            t of [
+              { n: 'Standard', p: '799', q: '400', c: 'blue' },
+              { n: 'Premium', p: '1499', q: '250', c: 'purple' },
+              { n: 'VIP', p: '1999', q: '100', c: 'orange' },
+            ];
+            track t.n
+          ) {
+            <div>
+              <i [class]="t.c">◆</i><input [value]="t.n" /><label
+                >Price (LKR)<input [value]="t.p" /></label
+              ><label>Limit<input [value]="t.q" /></label
+              ><button type="button" (click)="flash(t.n + ' actions opened')">•••</button>
+            </div>
+          }
+          <button class="add-row" type="button" (click)="flash('New ticket type added')">
+            ＋ Add Ticket Type
+          </button>
+        </div>
+      }
+      @case ('parking') {
+        <div class="parking-setup">
+          <div>
+            <img src="/assets/smart-parking.webp" /><span class="status">Optional Add-on</span>
+          </div>
+          <aside>
+            <label class="switch-row"
+              ><span
+                ><b>Enable Parking</b
+                ><small>Allow customers to reserve parking during booking.</small></span
+              ><input type="checkbox" checked /></label
+            ><label
+              >Parking Area<select>
+                <option>SoundWave Arena Main Lot</option>
+              </select></label
+            ><label>Total Slots<input type="number" value="120" /></label
+            ><label>Price per Slot<input value="300" /></label>
+            <p class="hint">
+              Customers can skip parking and complete their ticket booking normally.
+            </p>
+          </aside>
+        </div>
+      }
+      @case ('poster') {
+        <div class="poster-setup">
+          <div class="upload-zone big">
+            ⇧<b>Upload Event Poster</b><span>Recommended 1600 × 900</span
+            ><button
+              class="ghost"
+              type="button"
+              (click)="flash('Choose an image during backend integration')"
+            >
+              Choose Image
+            </button>
+          </div>
+          <div class="preview-banner">
+            <img src="/assets/concert-hero.webp" /><span>LIVE • 24 MAY</span>
+            <h3>Summer Music Fest</h3>
+          </div>
+          <aside class="qr-small">
+            <div class="fake-qr">▦</div>
+            <b>Event QR Preview</b><span>Generated automatically</span>
+          </aside>
+        </div>
+      }
+      @case ('review') {
+        <div class="review-grid">
+          <section>
+            <h2>Summer Music Fest 2026</h2>
+            <p>SoundWave Arena • 24 May 2026 • 6:00 PM</p>
+            <img src="/assets/concert-hero.webp" />
+          </section>
+          <aside>
+            <h3>Review Checklist</h3>
+            <p>✓ Event type & details</p>
+            <p>✓ Seat map configured</p>
+            <p>✓ 3 ticket tiers</p>
+            <p>✓ Parking enabled (120 slots)</p>
+            <p>✓ Poster & QR ready</p>
+            <hr />
+            <p><span>Estimated capacity</span><b>750 guests</b></p>
+          </aside>
+        </div>
+      }
+      @case ('submit') {
+        <div class="submit-state">
+          <span>✓</span>
+          <h2>Ready for Admin Review</h2>
+          <p>
+            Submitting locks the event setup until the administrator approves or returns it with
+            notes.
+          </p>
+          <div>
+            <button class="ghost" (click)="go('/organizer/events/create/review')">
+              Review Again</button
+            ><button class="primary" (click)="flash('Event submitted for approval')">
+              Submit Event for Approval →
+            </button>
+          </div>
+        </div>
+      }
+    }
+    @if (body !== 'submit') {
+      <div class="wizard-actions">
+        <button class="ghost" [disabled]="activeWizardStep() === 1" (click)="prevWizard()">
+          ← Back</button
+        ><span>Step {{ activeWizardStep() }} of 8</span
+        ><button class="primary" (click)="nextWizard()">Continue →</button>
+      </div>
+    }
+  </article>
+</ng-template>
+
+<ng-template #reportsTpl let-admin="admin">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">PERFORMANCE</span>
+      <h1>{{ admin ? 'Reports & Analytics' : 'Organizer Reports' }}</h1>
+      <p>
+        {{
+          admin
+            ? 'System-wide booking, revenue and utilization insights.'
+            : 'Track bookings, ticket performance and revenue trends.'
+        }}
+      </p>
+    </div>
+    <button class="primary" (click)="flash('Report exported')">⇩ Export Report</button>
+  </section>
+  <section class="stats four">
+    <article>
+      <i class="green">₹</i><small>Total Revenue</small><b>₹8.45L</b><span>↑ 22.7%</span>
+    </article>
+    <article><i class="blue">◆</i><small>Bookings</small><b>842</b><span>↑ 18.3%</span></article>
+    <article>
+      <i class="purple">▣</i><small>{{ admin ? 'Active Events' : 'Tickets Sold' }}</small
+      ><b>{{ admin ? '128' : '1,684' }}</b
+      ><span>↑ 12.5%</span>
+    </article>
+    <article>
+      <i class="orange">Ⓟ</i><small>Parking Utilization</small><b>68%</b><span>+5.4%</span>
+    </article>
+  </section>
+  <section class="dash-grid">
+    <article class="panel span2 chart-card large">
+      <div class="panel-title">
+        <div>
+          <h2>Revenue & Booking Trend</h2>
+          <p>Last 7 days</p>
+        </div>
+        <select>
+          <option>This Week</option>
+          <option>This Month</option>
+        </select>
+      </div>
+      <div class="large-chart">
+        <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+          <polyline
+            points="0,185 80,150 160,170 240,95 320,135 400,70 480,110 600,35"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <polyline
+            points="0,185 80,150 160,170 240,95 320,135 400,70 480,110 600,35 600,220 0,220"
+            fill="currentColor"
+            opacity=".08"
+          />
+        </svg>
+      </div>
+    </article>
+    <article class="panel">
+      <h2>{{ admin ? 'Event Status' : 'Ticket Distribution' }}</h2>
+      <div class="donut">
+        <span
+          ><b>{{ admin ? '186' : '1,684' }}</b
+          >Total</span
+        >
+      </div>
+      <div class="legend">
+        <p><i class="green"></i>{{ admin ? 'Approved' : 'Standard' }} <b>58%</b></p>
+        <p><i class="purple"></i>{{ admin ? 'Pending' : 'Premium' }} <b>29%</b></p>
+        <p><i class="orange"></i>{{ admin ? 'Rejected' : 'VIP' }} <b>13%</b></p>
+      </div>
+    </article>
+  </section>
+  <article class="panel">
+    <div class="panel-title">
+      <h2>{{ admin ? 'Top Performing Events & Organizers' : 'Event Performance' }}</h2>
+      <button type="button" (click)="flash('Detailed report opened')">View details</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>EVENT</th>
+          <th>{{ admin ? 'ORGANIZER' : 'DATE' }}</th>
+          <th>BOOKINGS</th>
+          <th>REVENUE</th>
+          <th>UTILIZATION</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (e of organizerEvents; track e.id) {
+          <tr>
+            <td>
+              <b>{{ e.title }}</b>
+            </td>
+            <td>{{ admin ? 'SoundWave Events' : e.date.split('•')[0] }}</td>
+            <td>{{ e.bookings }}</td>
+            <td>{{ e.revenue }}</td>
+            <td>
+              <div class="usage">
+                <i><em [style.width.%]="54 + (e.bookings % 40)"></em></i
+                ><b>{{ 54 + (e.bookings % 40) }}%</b>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </article>
+</ng-template>
+
+<ng-template #notificationsTpl let-admin="admin">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">INBOX</span>
+      <h1>Notifications</h1>
+      <p>
+        {{
+          admin
+            ? 'System, approval and payment updates.'
+            : 'Approval updates, booking alerts and event reminders.'
+        }}
+      </p>
+    </div>
+    <button class="ghost" (click)="flash('All notifications marked as read')">
+      ✓ Mark all read
+    </button>
+  </section>
+  <section class="notification-layout">
+    <article class="panel">
+      <div class="notice-tabs">
+        <button
+          type="button"
+          [class.active]="notificationTab() === 'All'"
+          (click)="notificationTab.set('All')"
+        >
+          All</button
+        ><button
+          type="button"
+          [class.active]="notificationTab() === 'Unread'"
+          (click)="notificationTab.set('Unread')"
+        >
+          Unread</button
+        ><button
+          type="button"
+          [class.active]="notificationTab() === (admin ? 'Approvals' : 'Bookings')"
+          (click)="notificationTab.set(admin ? 'Approvals' : 'Bookings')"
+        >
+          {{ admin ? 'Approvals' : 'Bookings' }}</button
+        ><button
+          type="button"
+          [class.active]="notificationTab() === 'Payments'"
+          (click)="notificationTab.set('Payments')"
+        >
+          Payments
+        </button>
+      </div>
+      <div class="notification-feed">
+        @for (
+          n of [
+            {
+              i: '✓',
+              c: 'green',
+              t: admin ? 'Event approved successfully' : 'Your event was approved',
+              d: 'Summer Music Fest 2026 is now approved and visible.',
+              time: '2 min ago',
+            },
+            {
+              i: '◆',
+              c: 'blue',
+              t: 'New booking received',
+              d: 'Booking BKG-10092 was created for Summer Music Fest.',
+              time: '18 min ago',
+            },
+            {
+              i: '₹',
+              c: 'purple',
+              t: 'Payment completed',
+              d: 'A payment of ₹3,298 was completed successfully.',
+              time: '35 min ago',
+            },
+            {
+              i: '◷',
+              c: 'orange',
+              t: admin ? 'Approval requires review' : 'Event awaiting review',
+              d: 'Food Carnival 2026 is currently pending approval.',
+              time: '1 hour ago',
+            },
+          ];
+          track n.t
+        ) {
+          <article>
+            <i [class]="n.c">{{ n.i }}</i>
+            <div>
+              <h3>{{ n.t }}</h3>
+              <p>{{ n.d }}</p>
+              <small>{{ n.time }}</small>
+            </div>
+            <button
+              type="button"
+              [attr.aria-label]="'More actions for ' + n.t"
+              (click)="flash(n.t + ' archived')"
+            >
+              •••
+            </button>
+          </article>
+        }
+      </div>
+    </article>
+    <aside class="panel preferences">
+      <h2>Notification Preferences</h2>
+      <p>Choose what you want to receive.</p>
+      @for (
+        p of [
+          'Booking updates',
+          'Payment updates',
+          'Approval updates',
+          'Event reminders',
+          'Weekly summary',
+        ];
+        track p
+      ) {
+        <label
+          ><span
+            ><b>{{ p }}</b
+            ><small>Email + in-app</small></span
+          ><input type="checkbox" checked
+        /></label>
+      }
+    </aside>
+  </section>
+</ng-template>
+
+<ng-template #profileTpl let-admin="admin">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">ACCOUNT</span>
+      <h1>{{ admin ? 'Administrator' : 'Organizer' }} Profile</h1>
+      <p>Keep account and business information up to date.</p>
+    </div>
+    <button class="primary" (click)="flash('Profile saved')">Save Changes</button>
+  </section>
+  <section class="form-layout">
+    <article class="panel form-card">
+      <div class="profile-edit-head">
+        <div class="avatar xl">{{ admin ? 'K' : 'A' }}</div>
+        <div>
+          <h2>{{ admin ? 'Kavin Kumar' : 'Arun Prakash' }}</h2>
+          <p>{{ admin ? 'System Administrator' : 'SoundWave Events' }}</p>
+          <button class="ghost" type="button" (click)="flash('Photo picker opened')">
+            Change Photo
+          </button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>Full Name<input [value]="admin ? 'Kavin Kumar' : 'Arun Prakash'" /></label
+        ><label>Email<input [value]="admin ? 'admin@eventora.com' : 'arun@soundwave.lk'" /></label
+        ><label>Phone<input value="+94 77 123 4567" /></label
+        ><label>Role<input [value]="admin ? 'Administrator' : 'Organizer'" disabled /></label>
+        @if (!admin) {
+          <label class="full">Company Name<input value="SoundWave Events" /></label
+          ><label class="full">Business Address<textarea>Colombo, Sri Lanka</textarea></label>
+        }
+      </div>
+    </article>
+    <aside class="panel visual-card">
+      <h2>Account Status</h2>
+      <div class="approval-card">
+        <i>✓</i><b>Verified & Active</b>
+        <p>
+          Your account has full access to all {{ admin ? 'administration' : 'organizer' }} features.
+        </p>
+      </div>
+      <hr />
+      <p><span>Last login</span><b>Today, 4:12 PM</b></p>
+      <p><span>2FA</span><b>Enabled</b></p>
+    </aside>
+  </section>
+</ng-template>
+
+<ng-template #settingsTpl let-admin="admin">
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">PREFERENCES</span>
+      <h1>{{ admin ? 'Admin' : 'Organizer' }} Settings</h1>
+      <p>Configure account, security and workspace preferences.</p>
+    </div>
+    <button class="primary" (click)="flash('Settings saved')">Save Settings</button>
+  </section>
+  <section class="settings-grid">
+    <nav class="panel settings-nav">
+      <button
+        type="button"
+        [class.active]="settingsSection() === 'General'"
+        (click)="settingsSection.set('General')"
+      >
+        General</button
+      ><button
+        type="button"
+        [class.active]="settingsSection() === 'Security'"
+        (click)="settingsSection.set('Security')"
+      >
+        Security</button
+      ><button
+        type="button"
+        [class.active]="settingsSection() === 'Notifications'"
+        (click)="settingsSection.set('Notifications')"
+      >
+        Notifications</button
+      ><button
+        type="button"
+        [class.active]="settingsSection() === 'Appearance'"
+        (click)="settingsSection.set('Appearance')"
+      >
+        Appearance
+      </button>
+      @if (admin) {
+        <button
+          type="button"
+          [class.active]="settingsSection() === 'System'"
+          (click)="settingsSection.set('System')"
+        >
+          System
+        </button>
+      }
+    </nav>
+    <article class="panel settings-main">
+      <h2>General Preferences</h2>
+      <div class="form-grid">
+        <label
+          >Language<select>
+            <option>English</option>
+            <option>Tamil</option>
+            <option>Sinhala</option>
+          </select></label
+        ><label
+          >Timezone<select>
+            <option>Asia/Colombo (GMT+5:30)</option>
+          </select></label
+        ><label
+          >Currency<select>
+            <option>LKR — Sri Lankan Rupee</option>
+          </select></label
+        ><label
+          >Date Format<select>
+            <option>DD MMM YYYY</option>
+          </select></label
+        >
+      </div>
+      <hr />
+      <h3>Email Preferences</h3>
+      @for (
+        p of [
+          'Booking notifications',
+          'Approval updates',
+          'Payment confirmations',
+          'Weekly summary',
+        ];
+        track p
+      ) {
+        <label class="switch-row"
+          ><span
+            ><b>{{ p }}</b
+            ><small>Receive this update by email.</small></span
+          ><input type="checkbox" checked
+        /></label>
+      }
+    </article>
+  </section>
+</ng-template>
+
+<ng-template #adminEventsTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">EVENT MANAGEMENT</span>
+      <h1>All Events</h1>
+      <p>Manage events across all organizers and venues.</p>
+    </div>
+    <button class="primary" (click)="go('/admin/events/create')">
+      ＋ Create Event for Organizer
+    </button>
+  </section>
+  <article class="panel">
+    <div class="toolbar">
+      <div class="searchbox">⌕ <input placeholder="Search events..." /></div>
+      <select>
+        <option>All Statuses</option>
+        <option>Approved</option>
+        <option>Pending</option></select
+      ><select>
+        <option>All Categories</option>
+        <option>Concert</option>
+        <option>Sports</option>
+      </select>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>EVENT</th>
+          <th>ORGANIZER</th>
+          <th>VENUE</th>
+          <th>DATE</th>
+          <th>BOOKINGS</th>
+          <th>STATUS</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (e of organizerEvents; track e.id) {
+          <tr>
+            <td>
+              <div class="table-event">
+                <img [src]="e.image" /><b>{{ e.title }}</b>
+              </div>
+            </td>
+            <td>SoundWave Events</td>
+            <td>{{ e.venue }}</td>
+            <td>{{ e.date.split('•')[0] }}</td>
+            <td>{{ e.bookings }}</td>
+            <td>
+              <span
+                class="status"
+                [class.pending]="e.status === 'Pending'"
+                [class.draft]="e.status === 'Draft'"
+                >{{ e.status }}</span
+              >
+            </td>
+            <td><button class="ghost" (click)="go('/admin/events/' + e.id)">View</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </article>
+</ng-template>
+
+<ng-template #adminEventFormTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">ADMIN ASSISTED EVENT</span>
+      <h1>Create Event for Organizer</h1>
+      <p>Create and configure an event on behalf of an organizer.</p>
+    </div>
+  </section>
+  <section class="form-layout">
+    <article class="panel form-card">
+      <div class="form-grid">
+        <label
+          >Organizer<select>
+            <option>SoundWave Events — Arun Prakash</option>
+            <option>Live Nation — Priya Menon</option>
+          </select></label
+        ><label
+          >Event Type<select>
+            <option>Seat Based</option>
+            <option>Non-Seat Based</option>
+          </select></label
+        ><label class="full">Event Name<input value="Summer Music Fest 2026" /></label
+        ><label
+          >Venue<select>
+            <option>SoundWave Arena</option>
+          </select></label
+        ><label
+          >Category<select>
+            <option>Concert</option>
+          </select></label
+        ><label>Date<input type="date" value="2026-05-24" /></label
+        ><label>Time<input type="time" value="18:00" /></label
+        ><label class="full"
+          >Description<textarea>
+Premium live music event with reserved seats and optional parking.</textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="ghost" type="button" (click)="flash('Draft saved')">Save Draft</button
+        ><button
+          class="primary"
+          (click)="flash('Event created for organizer'); go('/admin/events/summer/layout')"
+        >
+          Create & Continue
+        </button>
+      </div>
+    </article>
+    <aside class="panel visual-card">
+      <img src="/assets/concert-hero.webp" />
+      <h3>Admin Assisted Flow</h3>
+      <p>
+        Create the event, then configure seats/capacity, pricing, parking and poster/QR before
+        publishing.
+      </p>
+    </aside>
+  </section>
+</ng-template>
+
+<ng-template #adminEventDetailTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">EVENT DETAIL</span>
+      <h1>Summer Music Fest 2026</h1>
+      <p>SoundWave Events • SoundWave Arena</p>
+    </div>
+    <div class="head-actions">
+      <button class="ghost" type="button" (click)="flash('Event editor opened')">✎ Edit</button
+      ><button class="primary" (click)="openAction('Summer Music Fest 2026', 'approve')">
+        Approve Event
+      </button>
+    </div>
+  </section>
+  <section class="event-hero panel">
+    <img src="/assets/concert-hero.webp" />
+    <div>
+      <span class="status pending">Pending Review</span>
+      <h2>Summer Music Fest 2026</h2>
+      <p>Seat-based concert with 752 seats, three ticket tiers and 120 optional parking slots.</p>
+      <div class="hero-meta"><span>24 May 2026</span><span>6:00 PM</span><span>Concert</span></div>
+    </div>
+  </section>
+  <section class="dash-grid">
+    <article class="panel span2">
+      <div class="panel-title">
+        <h2>Configuration Summary</h2>
+        <button (click)="go('/admin/events/summer/layout')">Manage Layouts →</button>
+      </div>
+      <div class="ops-grid">
+        <button type="button" (click)="go('/admin/events/summer/layout')">
+          ♙<b>Seat Layout</b><small>752 configured</small></button
+        ><button type="button" (click)="flash('Ticket pricing opened')">
+          ◆<b>Ticket Pricing</b><small>3 tiers</small></button
+        ><button type="button" (click)="go('/admin/parking')">
+          Ⓟ<b>Parking</b><small>120 slots</small></button
+        ><button type="button" (click)="flash('Poster and QR opened')">
+          ▦<b>Poster / QR</b><small>Ready</small>
+        </button>
+      </div>
+    </article>
+    <article class="panel">
+      <h2>Organizer</h2>
+      <div class="profile-mini">
+        <span class="avatar">A</span>
+        <div><b>Arun Prakash</b><small>SoundWave Events</small><span>Verified organizer</span></div>
+      </div>
+    </article>
+  </section>
+</ng-template>
+
+<ng-template #adminApprovalsTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">REVIEW QUEUE</span>
+      <h1>Event Approvals</h1>
+      <p>Review submitted events and approve or return them with clear notes.</p>
+    </div>
+  </section>
+  <article class="panel">
+    <div class="toolbar">
+      <div class="searchbox">⌕ <input placeholder="Search requests..." /></div>
+      <select>
+        <option>Pending first</option>
+        <option>Newest first</option>
+      </select>
+    </div>
+    <div class="approval-queue">
+      @for (
+        a of [
+          {
+            id: 'summer',
+            e: 'Summer Music Fest 2026',
+            o: 'SoundWave Events',
+            d: '15 May 2026',
+            img: '/assets/concert-hero.webp',
+          },
+          {
+            id: 'food',
+            e: 'Food Carnival 2026',
+            o: 'Foodies Hub',
+            d: '14 May 2026',
+            img: '/assets/event-grid.webp',
+          },
+          {
+            id: 'tech',
+            e: 'Tech Conference 2026',
+            o: 'BizConnect',
+            d: '13 May 2026',
+            img: '/assets/eventora-event-sprite.png',
+          },
+        ];
+        track a.id
+      ) {
+        <article>
+          <img [src]="a.img" />
+          <div>
+            <span class="status pending">Pending</span>
+            <h3>{{ a.e }}</h3>
+            <p>{{ a.o }}</p>
+            <small>Submitted {{ a.d }}</small>
+          </div>
+          <div>
+            <button class="ghost" (click)="go('/admin/approvals/' + a.id)">Review</button
+            ><button class="approve" (click)="openAction(a.e, 'approve')">✓</button
+            ><button class="reject" (click)="openAction(a.e, 'reject')">×</button>
+          </div>
+        </article>
+      }
+    </div>
+  </article>
+</ng-template>
+
+<ng-template #approvalDetailTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">APPROVAL REVIEW</span>
+      <h1>Summer Music Fest 2026</h1>
+      <p>Submitted by SoundWave Events • 15 May 2026</p>
+    </div>
+    <div class="head-actions">
+      <button class="danger-outline" (click)="openAction('Summer Music Fest 2026', 'reject')">
+        Reject</button
+      ><button class="primary" (click)="openAction('Summer Music Fest 2026', 'approve')">
+        ✓ Approve Event
+      </button>
+    </div>
+  </section>
+  <section class="review-admin-grid">
+    <article class="panel">
+      <img class="review-cover" src="/assets/concert-hero.webp" />
+      <h2>Event Review Checklist</h2>
+      <div class="check-list">
+        <p>✓ Organizer verified</p>
+        <p>✓ Venue capacity valid</p>
+        <p>✓ Ticket pricing configured</p>
+        <p>✓ Seat map complete</p>
+        <p>✓ Parking optional and configured</p>
+        <p>✓ Poster / QR ready</p>
+      </div>
+    </article>
+    <aside class="panel">
+      <h2>Administrator Notes</h2>
+      <textarea placeholder="Add internal notes or feedback for the organizer..."></textarea
+      ><label class="switch-row"
+        ><span
+          ><b>Send note to organizer</b
+          ><small>Include this note in their notification.</small></span
+        ><input type="checkbox" checked
+      /></label>
+      <hr />
+      <h3>Submission</h3>
+      <p><span>Submitted</span><b>15 May 2026, 10:30 AM</b></p>
+      <p><span>Last updated</span><b>15 May 2026, 10:24 AM</b></p>
+    </aside>
+  </section>
+</ng-template>
+
+<ng-template #bookingsAdminTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">BOOKING MANAGEMENT</span>
+      <h1>All Bookings</h1>
+      <p>Search and review customer bookings across every event.</p>
+    </div>
+    <button class="primary" (click)="flash('Bookings exported')">⇩ Export</button>
+  </section>
+  <article class="panel">
+    <div class="toolbar">
+      <div class="searchbox">⌕ <input placeholder="Search booking ID, customer or event..." /></div>
+      <select>
+        <option>All Statuses</option>
+        <option>Confirmed</option>
+        <option>Cancelled</option>
+      </select>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>BOOKING</th>
+          <th>CUSTOMER</th>
+          <th>EVENT</th>
+          <th>DATE</th>
+          <th>AMOUNT</th>
+          <th>STATUS</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (
+          b of [
+            { id: 'BKG-10078', n: 'Rohan Mehta', e: 'Summer Music Fest', a: '₹3,298' },
+            { id: 'BKG-10081', n: 'Neha Iyer', e: 'Food Carnival', a: '₹1,499' },
+            { id: 'BKG-10089', n: 'Vikram Singh', e: 'League Final', a: '₹4,996' },
+            { id: 'BKG-10092', n: 'Aisha Khan', e: 'Tech Conference', a: '₹2,298' },
+          ];
+          track b.id
+        ) {
+          <tr>
+            <td>
+              <b>{{ b.id }}</b>
+            </td>
+            <td>{{ b.n }}</td>
+            <td>{{ b.e }}</td>
+            <td>15 May 2026</td>
+            <td>
+              <b>{{ b.a }}</b>
+            </td>
+            <td><span class="status">Confirmed</span></td>
+            <td><button class="ghost" (click)="go('/admin/bookings/' + b.id)">View</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </article>
+</ng-template>
+
+<ng-template #bookingDetailTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">BOOKING DETAIL</span>
+      <h1>BKG-10078</h1>
+      <p>Confirmed booking • Summer Music Fest</p>
+    </div>
+    <button class="ghost" (click)="flash('Booking receipt opened')">View Receipt</button>
+  </section>
+  <section class="booking-detail-grid">
+    <article class="panel">
+      <div class="profile-mini">
+        <span class="avatar">R</span>
+        <div>
+          <h2>Rohan Mehta</h2>
+          <p>rohan@email.com • +94 77 555 2121</p>
+        </div>
+      </div>
+      <hr />
+      <h3>Booking Items</h3>
+      <p><span>Event</span><b>Summer Music Fest</b></p>
+      <p><span>Tickets</span><b>2 × VIP</b></p>
+      <p><span>Seats</span><b>A1, A2</b></p>
+      <p><span>Parking</span><b>Zone B • B27</b></p>
+    </article>
+    <aside class="panel">
+      <span class="status">Confirmed</span>
+      <h2>Payment Summary</h2>
+      <p><span>Tickets</span><b>₹2,998</b></p>
+      <p><span>Parking</span><b>₹300</b></p>
+      <hr />
+      <p class="total-row"><span>Total</span><b>₹3,298</b></p>
+      <span class="status">Paid</span>
+    </aside>
+  </section>
+</ng-template>
+
+<ng-template #paymentsAdminTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">PAYMENT MANAGEMENT</span>
+      <h1>All Payments</h1>
+      <p>Review transactions, statuses and booking-linked payments.</p>
+    </div>
+    <button class="primary" (click)="flash('Payments exported')">⇩ Export</button>
+  </section>
+  <section class="stats four">
+    <article>
+      <i class="green">₹</i><small>Total Collected</small><b>₹8.45L</b><span>↑ 22.7%</span>
+    </article>
+    <article><i class="blue">✓</i><small>Successful</small><b>824</b><span>97.8%</span></article>
+    <article>
+      <i class="orange">◷</i><small>Pending</small><b>12</b><span>Needs review</span>
+    </article>
+    <article><i class="red">↶</i><small>Refunded</small><b>6</b><span>₹18,400</span></article>
+  </section>
+  <article class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>PAYMENT ID</th>
+          <th>BOOKING</th>
+          <th>CUSTOMER</th>
+          <th>AMOUNT</th>
+          <th>METHOD</th>
+          <th>STATUS</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (
+          p of [
+            { id: 'PAY-8821', b: 'BKG-10078', n: 'Rohan Mehta', a: '₹3,298', m: 'Card' },
+            { id: 'PAY-8824', b: 'BKG-10081', n: 'Neha Iyer', a: '₹1,499', m: 'Wallet' },
+            { id: 'PAY-8830', b: 'BKG-10089', n: 'Vikram Singh', a: '₹4,996', m: 'Card' },
+          ];
+          track p.id
+        ) {
+          <tr>
+            <td>
+              <b>{{ p.id }}</b>
+            </td>
+            <td>{{ p.b }}</td>
+            <td>{{ p.n }}</td>
+            <td>
+              <b>{{ p.a }}</b>
+            </td>
+            <td>{{ p.m }}</td>
+            <td><span class="status">Paid</span></td>
+            <td><button class="ghost" (click)="go('/admin/payments/' + p.id)">View</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </article>
+</ng-template>
+
+<ng-template #paymentDetailTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">PAYMENT DETAIL</span>
+      <h1>PAY-8821</h1>
+      <p>Completed • 15 May 2026, 03:15 PM</p>
+    </div>
+    <button class="primary" (click)="flash('Receipt downloaded')">⇩ Download Receipt</button>
+  </section>
+  <section class="booking-detail-grid">
+    <article class="panel">
+      <span class="status">Paid</span>
+      <h2>Transaction Information</h2>
+      <p><span>Booking</span><b>BKG-10078</b></p>
+      <p><span>Customer</span><b>Rohan Mehta</b></p>
+      <p><span>Event</span><b>Summer Music Fest</b></p>
+      <p><span>Method</span><b>Card •••• 4242</b></p>
+      <p><span>Reference</span><b>TXN-20260515-8821</b></p>
+    </article>
+    <aside class="panel">
+      <h2>Amount</h2>
+      <p><span>Tickets</span><b>₹2,998</b></p>
+      <p><span>Parking</span><b>₹300</b></p>
+      <hr />
+      <p class="total-row"><span>Total Paid</span><b>₹3,298</b></p>
+      <div class="secure-note">✓ Payment recorded successfully</div>
+    </aside>
+  </section>
+</ng-template>
+
+<ng-template #parkingAdminTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">PARKING MANAGEMENT</span>
+      <h1>Parking Overview</h1>
+      <p>Track parking layouts, capacity and reservation utilization by event.</p>
+    </div>
+    <button class="primary" (click)="flash('Parking layout editor opened')">
+      ＋ New Parking Layout
+    </button>
+  </section>
+  <section class="stats four">
+    <article>
+      <i class="green">Ⓟ</i><small>Total Slots</small><b>3,000</b><span>Across 18 venues</span>
+    </article>
+    <article><i class="blue">✓</i><small>Available</small><b>1,642</b><span>54.7%</span></article>
+    <article><i class="purple">◆</i><small>Reserved</small><b>1,120</b><span>37.3%</span></article>
+    <article><i class="orange">!</i><small>Unavailable</small><b>238</b><span>7.9%</span></article>
+  </section>
+  <section class="dash-grid">
+    <article class="panel span2">
+      <div class="panel-title">
+        <h2>Live Allocation Preview</h2>
+        <select>
+          <option>Summer Music Fest</option>
+          <option>League Final</option>
+        </select>
+      </div>
+      <div class="parking-map">
+        @for (_ of parkingCells; track $index) {
+          <button
+            type="button"
+            [class.occupied]="$index % 7 === 0"
+            [class.reserved]="$index % 5 === 0 || selectedParkingIndex() === $index"
+            [disabled]="$index % 7 === 0"
+            (click)="selectParking($index)"
+          >
+            {{ slotLabel($index) }}
+          </button>
+        }
+      </div>
+      <div class="map-legend">
+        <span><i class="available"></i>Available</span><span><i class="selected"></i>Reserved</span
+        ><span><i class="blocked"></i>Occupied</span>
+      </div>
+    </article>
+    <article class="panel">
+      <h2>Event Utilization</h2>
+      <div class="progress-card">
+        @for (
+          e of [
+            { n: 'Summer Music Fest', p: 72 },
+            { n: 'Food Carnival', p: 48 },
+            { n: 'League Final', p: 86 },
+            { n: 'Tech Conference', p: 61 },
+          ];
+          track e.n
+        ) {
+          <p>
+            <span>{{ e.n }}</span
+            ><b>{{ e.p }}%</b>
+          </p>
+          <i><em [style.width.%]="e.p"></em></i>
+        }
+      </div>
+    </article>
+  </section>
+</ng-template>
+
+<ng-template #categoriesTpl>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">MASTER DATA</span>
+      <h1>Event Categories</h1>
+      <p>Maintain the categories customers use to browse and filter events.</p>
+    </div>
+    <button class="primary" (click)="flash('Category form opened')">＋ Add Category</button>
+  </section>
+  <article class="panel">
+    <div class="category-grid">
+      @for (
+        c of [
+          { i: '♫', n: 'Concert', e: 38, c: 'purple' },
+          { i: '⚽', n: 'Sports', e: 24, c: 'green' },
+          { i: '▥', n: 'Conference', e: 31, c: 'blue' },
+          { i: '✦', n: 'Festival', e: 18, c: 'orange' },
+          { i: '◈', n: 'Workshop', e: 12, c: 'pink' },
+          { i: '◆', n: 'Other', e: 5, c: 'gray' },
+        ];
+        track c.n
+      ) {
+        <article>
+          <i [class]="c.c">{{ c.i }}</i>
+          <div>
+            <h3>{{ c.n }}</h3>
+            <p>{{ c.e }} active events</p>
+          </div>
+          <button
+            type="button"
+            [attr.aria-label]="'Edit ' + c.n"
+            (click)="flash(c.n + ' editor opened')"
+          >
+            ✎</button
+          ><button class="reject" (click)="openAction(c.n, 'delete')">×</button>
+        </article>
+      }
+    </div>
+  </article>
+</ng-template>

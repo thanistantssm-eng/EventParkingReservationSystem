@@ -1,0 +1,1886 @@
+<div
+  class="portal"
+  [class.admin-theme]="view() === 'admin'"
+  [class.organizer-theme]="view() === 'organizer'"
+>
+  <aside class="sidebar" [class.open]="sidebarOpen()">
+    <a class="portal-brand" routerLink="/"
+      ><span class="pin-logo">P</span
+      ><span><b>Event Parking</b><small>Reservation System</small></span></a
+    >
+
+    @if (view() === 'admin') {
+      <p class="nav-label">CONTROL CENTER</p>
+      <nav>
+        <button class="active" (click)="go('/admin/dashboard')">▦ <span>Dashboard</span></button
+        ><button (click)="go('/admin/approvals')">◉ <span>Approvals</span><i>6</i></button
+        ><button (click)="go('/admin/organizers')">♙ <span>Customers</span></button
+        ><button (click)="go('/admin/organizers')">♜ <span>Organizers</span></button
+        ><button (click)="go('/admin/events')">▣ <span>Events</span></button
+        ><button (click)="go('/admin/bookings')">▤ <span>Bookings</span></button
+        ><button (click)="go('/admin/payments')">◆ <span>Payments</span></button
+        ><button (click)="go('/admin/reports')">▥ <span>Reports</span></button
+        ><button (click)="go('/admin/settings')">⚙ <span>Settings</span></button>
+      </nav>
+    } @else if (view() === 'organizer') {
+      <p class="nav-label">ORGANIZER</p>
+      <nav>
+        <button class="active" (click)="go('/organizer/dashboard')">▦ <span>Dashboard</span></button
+        ><button (click)="go('/organizer/events/create/type')">＋ <span>Create Event</span></button
+        ><button (click)="go('/organizer/my-events')">▣ <span>Event Details</span></button
+        ><button (click)="go('/organizer/events/summer/ticket-pricing')">
+          ◆ <span>Ticket Allocation</span></button
+        ><button (click)="go('/organizer/events/summer/seats')">▦ <span>Seat Layout</span></button
+        ><button (click)="go('/organizer/events/summer/parking-setup')">
+          Ⓟ <span>Parking Allocation</span></button
+        ><button (click)="go('/organizer/events/summer/bookings')">♙ <span>Bookings</span></button
+        ><button (click)="go('/organizer/reports')">▥ <span>Sales Report</span></button
+        ><button (click)="go('/organizer/settings')">⚙ <span>Settings</span></button>
+      </nav>
+    } @else {
+      <p class="nav-label">MENU</p>
+      <nav>
+        <button [class.active]="view() === 'dashboard'" (click)="go('/customer/dashboard')">
+          ▦ <span>Dashboard</span>
+        </button>
+        <button
+          [class.active]="
+            ['events', 'event-detail', 'tickets', 'seats', 'parking-select'].includes(view())
+          "
+          (click)="go('/customer/events')"
+        >
+          ⌕ <span>Discover Events</span>
+        </button>
+        <button
+          [class.active]="['bookings', 'booking-detail', 'ticket'].includes(view())"
+          (click)="go('/customer/bookings')"
+        >
+          ▣ <span>My Bookings</span>
+        </button>
+        <button [class.active]="view() === 'my-parking'" (click)="go('/customer/parking')">
+          Ⓟ <span>My Parking</span>
+        </button>
+        <button
+          [class.active]="['payments', 'receipt'].includes(view())"
+          (click)="go('/customer/payments')"
+        >
+          ◆ <span>Payment History</span>
+        </button>
+        <button [class.active]="view() === 'notifications'" (click)="go('/customer/notifications')">
+          ♧ <span>Notifications</span><i>3</i>
+        </button>
+        <button [class.active]="view() === 'profile'" (click)="go('/customer/profile')">
+          ♙ <span>Profile</span>
+        </button>
+        <button [class.active]="view() === 'support'" (click)="go('/customer/support')">
+          ♡ <span>Support</span>
+        </button>
+        <button [class.active]="view() === 'settings'" (click)="go('/customer/settings')">
+          ⚙ <span>Settings</span>
+        </button>
+      </nav>
+    }
+
+    <div class="sidebar-user">
+      <span class="avatar">PS</span
+      ><span
+        ><b>{{
+          view() === 'admin'
+            ? 'Arun Kumar'
+            : view() === 'organizer'
+              ? 'Arun Prakash'
+              : 'Priya Sharma'
+        }}</b
+        ><small>{{
+          view() === 'admin'
+            ? 'Administrator'
+            : view() === 'organizer'
+              ? 'Event Organizer'
+              : 'Customer'
+        }}</small></span
+      ><button (click)="profileOpen.set(!profileOpen())">⌄</button>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <header class="topbar">
+      <button class="mobile-menu" (click)="sidebarOpen.set(!sidebarOpen())">☰</button>
+      <div class="global-search">
+        ⌕
+        <input
+          placeholder="Search events, bookings, parking..."
+          [value]="query()"
+          (input)="setQuery($event)"
+        />
+      </div>
+      <div class="top-actions">
+        <button (click)="go('/customer/notifications')">♧<i>3</i></button
+        ><button (click)="profileOpen.set(!profileOpen())">
+          <span class="avatar small">PS</span
+          ><b>{{
+            view() === 'admin'
+              ? 'Arun Kumar'
+              : view() === 'organizer'
+                ? 'Arun Prakash'
+                : 'Priya Sharma'
+          }}</b
+          >⌄
+        </button>
+      </div>
+      @if (profileOpen()) {
+        <div class="profile-menu">
+          <button (click)="go('/customer/profile'); profileOpen.set(false)">My profile</button
+          ><button (click)="signOut()">Switch account</button
+          ><button (click)="signOut()">Sign out</button>
+        </div>
+      }
+    </header>
+
+    <div class="page-content">
+      @switch (view()) {
+        @case ('dashboard') {
+          <section class="welcome-row">
+            <div>
+              <h1>Welcome back, Priya! 👋</h1>
+              <p>Here’s what’s happening with your events today.</p>
+            </div>
+            <button class="primary-btn" (click)="go('/customer/events')">Browse Events →</button>
+          </section>
+          <section class="dashboard-grid">
+            <article class="discover-card">
+              <div>
+                <small>DISCOVER SOMETHING NEW</small>
+                <h2>Discover Amazing Events</h2>
+                <p>Find and book the best events near you.</p>
+                <button (click)="go('/customer/events')">Browse Events　→</button>
+              </div>
+            </article>
+            <article class="quick-card">
+              <span class="icon purple">◆</span>
+              <h3>Book Ticket</h3>
+              <p>Find events and book your seats</p>
+              <button (click)="go('/customer/events')">→</button>
+            </article>
+            <article class="quick-card">
+              <span class="icon green">Ⓟ</span>
+              <h3>Reserve Parking</h3>
+              <p>Book safe parking with a reservation</p>
+              <button (click)="go('/customer/parking')">→</button>
+            </article>
+          </section>
+          <section class="two-column">
+            <div>
+              <div class="section-title">
+                <div>
+                  <h2>Upcoming Booking</h2>
+                  <p>Your next event is almost here</p>
+                </div>
+                <button (click)="go('/customer/bookings')">View All</button>
+              </div>
+              <article class="booking-highlight">
+                <div class="event-photo p0"></div>
+                <div class="booking-info">
+                  <span class="status green-status">● Confirmed</span>
+                  <h3>Summer Music Fest</h3>
+                  <p>📍 Jawaharlal Nehru Stadium, Chennai</p>
+                  <p>▣ Sunday, 24 May 2026　◷ 06:00 PM</p>
+                  <div class="ticket-mini">
+                    <span>Seat<b>A1, A2</b></span
+                    ><span>Tickets<b>2 Adults</b></span
+                    ><span>Parking<b>Zone B • B27</b></span>
+                    <div class="mini-qr"></div>
+                  </div>
+                  <button class="outline-btn" (click)="go('/customer/bookings/EP-05124')">
+                    Event Details →
+                  </button>
+                </div>
+              </article>
+            </div>
+            <div class="stack-cards">
+              <article>
+                <div class="section-title">
+                  <h2>Payment Summary</h2>
+                  <button (click)="go('/customer/payments')">View All</button>
+                </div>
+                <p>Last Payment <b>₹14,850</b></p>
+                <small>Paid on 03 May 2026</small><span class="paid">Paid</span>
+              </article>
+              <article>
+                <div class="section-title">
+                  <h2>Notifications</h2>
+                  <button (click)="go('/customer/notifications')">View All</button>
+                </div>
+                <ul class="notification-list">
+                  <li>
+                    <span class="dot purple">◆</span>
+                    <div>
+                      <b>Your booking for AR Rahman Live was confirmed!</b
+                      ><small>2 minutes ago</small>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="dot green">Ⓟ</span>
+                    <div>
+                      <b>Parking slot B27 reserved successfully</b><small>20 minutes ago</small>
+                    </div>
+                  </li>
+                  <li>
+                    <span class="dot orange">●</span>
+                    <div><b>Event starts in 3 days</b><small>1 day ago</small></div>
+                  </li>
+                </ul>
+              </article>
+            </div>
+          </section>
+          <section class="quick-access">
+            <div class="section-title"><h2>Quick Access</h2></div>
+            <div>
+              <button (click)="go('/customer/booking/ticket/EP-05124')">
+                <span>▣</span>My Tickets</button
+              ><button (click)="go('/customer/parking')"><span>Ⓟ</span>My Parking</button
+              ><button (click)="go('/customer/payments')"><span>◆</span>Payments</button
+              ><button (click)="go('/customer/favorites')"><span>♡</span>Favorites</button>
+            </div>
+          </section>
+        }
+
+        @case ('events') {
+          <section class="page-heading">
+            <div>
+              <span class="eyebrow">EXPLORE EXPERIENCES</span>
+              <h1>Discover Events</h1>
+              <p>Find events you'll love and reserve everything in one place.</p>
+            </div>
+          </section>
+          <section class="event-hero">
+            <div>
+              <span>FEATURED EVENT</span>
+              <h2>Summer Music Fest</h2>
+              <p>24 May • Jawaharlal Nehru Stadium</p>
+              <button (click)="go('/customer/events/summer')">View Event Details →</button>
+            </div>
+            <aside><small>Tickets from</small><b>₹799</b><small>Parking available</small></aside>
+          </section>
+          <div class="filters">
+            <div class="event-search">
+              ⌕
+              <input
+                placeholder="Search by event, artist or venue"
+                [value]="query()"
+                (input)="setQuery($event)"
+              />
+            </div>
+            @for (item of ['All', 'Concert', 'Sports', 'Conference', 'Festival']; track item) {
+              <button [class.active]="category() === item" (click)="category.set(item)">
+                {{ item }}
+              </button>
+            }
+          </div>
+          <div class="section-title">
+            <div>
+              <h2>Featured Events</h2>
+              <p>{{ visibleEvents().length }} curated experiences found</p>
+            </div>
+            <button (click)="query.set(''); category.set('All')">Clear filters</button>
+          </div>
+          <section class="event-cards">
+            @for (event of visibleEvents(); track event.id) {
+              <article>
+                <div class="event-thumb" [style.background-position]="spritePosition(event.image)">
+                  <button
+                    class="fav"
+                    [class.saved]="favoriteIds().has(event.id)"
+                    (click)="toggleFavorite(event.id)"
+                  >
+                    {{ favoriteIds().has(event.id) ? '♥' : '♡' }}</button
+                  ><span>{{ event.category }}</span>
+                </div>
+                <div class="event-card-body">
+                  <small>{{ event.status }}</small>
+                  <h3>{{ event.title }}</h3>
+                  <p>📍 {{ event.venue }}</p>
+                  <p>▣ {{ event.date }} • {{ event.time }}</p>
+                  <div>
+                    <b>From ₹{{ event.price }}</b
+                    ><button (click)="go('/customer/events/' + event.id)">View details →</button>
+                  </div>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty">No events match your search.</div>
+            }
+          </section>
+        }
+
+        @case ('event-detail') {
+          <button class="back-link" (click)="go('/customer/events')">← Back to Events</button>
+          <section class="detail-grid">
+            <div>
+              <div
+                class="detail-photo"
+                [style.background-position]="spritePosition(activeEvent().image)"
+              ></div>
+              <div class="event-meta">
+                <span>{{ activeEvent().category | uppercase }}</span>
+                <h1>{{ activeEvent().title }}</h1>
+                <p>Join thousands of music lovers for one unforgettable night.</p>
+                <div>
+                  <b>▣ {{ activeEvent().date }}</b
+                  ><b>◷ {{ activeEvent().time }}</b
+                  ><b>📍 {{ activeEvent().venue }}</b>
+                </div>
+              </div>
+              <section class="tabs">
+                <button
+                  type="button"
+                  [class.active]="detailTab() === 'about'"
+                  (click)="detailTab.set('about')"
+                >
+                  About</button
+                ><button
+                  type="button"
+                  [class.active]="detailTab() === 'venue'"
+                  (click)="detailTab.set('venue')"
+                >
+                  Venue Info</button
+                ><button
+                  type="button"
+                  [class.active]="detailTab() === 'gallery'"
+                  (click)="detailTab.set('gallery')"
+                >
+                  Gallery
+                </button>
+              </section>
+              <article class="content-card">
+                @if (detailTab() === 'about') {
+                  <h2>About the Event</h2>
+                  <p>
+                    Experience a spectacular event with a secure digital ticket and optional parking
+                    pass, all together in Eventora.
+                  </p>
+                  <ul>
+                    <li>Gates open 90 minutes early</li>
+                    <li>Digital QR entry</li>
+                    <li>Food and beverage stalls available</li>
+                  </ul>
+                } @else if (detailTab() === 'venue') {
+                  <h2>Venue Information</h2>
+                  <p>{{ activeEvent().venue }}</p>
+                  <ul>
+                    <li>Accessible entry gates</li>
+                    <li>Parking and drop-off zones available</li>
+                    <li>Follow on-site event signage</li>
+                  </ul>
+                } @else {
+                  <h2>Gallery</h2>
+                  <p>Event highlights and venue previews will appear here.</p>
+                  <div
+                    class="detail-photo"
+                    [style.background-position]="spritePosition(activeEvent().image)"
+                  ></div>
+                }
+              </article>
+            </div>
+            <aside class="booking-side">
+              <h3>Book Your Experience</h3>
+              <div>
+                <span class="icon purple">◆</span>
+                <p><b>Book Tickets</b><small>Choose category, quantity and seats</small></p>
+                <button
+                  class="primary-btn"
+                  (click)="go('/customer/booking/tickets/' + activeEvent().id)"
+                >
+                  Book Tickets
+                </button>
+              </div>
+              <div>
+                <span class="icon orange">Ⓟ</span>
+                <p><b>Reserve Parking</b><small>Secure your spot near the venue</small></p>
+                <button
+                  class="outline-btn"
+                  (click)="go('/customer/booking/parking/' + activeEvent().id)"
+                >
+                  Reserve Parking
+                </button>
+              </div>
+              <hr />
+              <h3>Event Summary</h3>
+              <p>▣ Sun, 24 May 2026</p>
+              <p>◷ 6:00 PM onwards</p>
+              <p>📍 Chennai Stadium</p>
+              <div class="safe-box">
+                ♢ <b>Safe & secure booking</b
+                ><small>Encrypted payments and verified organizers.</small>
+              </div>
+            </aside>
+          </section>
+        }
+
+        @case ('tickets') {
+          <app-stepper active="ticket"></app-stepper>
+          <section class="checkout-layout">
+            <div>
+              <div class="compact-event">
+                <div class="event-photo p0"></div>
+                <div>
+                  <span>CONCERT</span>
+                  <h2>Summer Music Fest</h2>
+                  <p>24 May 2026 • 6:00 PM</p>
+                  <p>Jawaharlal Nehru Stadium, Chennai</p>
+                </div>
+              </div>
+              <h2>Select Ticket Type & Quantity</h2>
+              <div class="ticket-options">
+                @for (
+                  ticket of [
+                    {
+                      id: 'vip',
+                      icon: '♛',
+                      name: 'VIP Pass',
+                      desc: 'Front-row access, VIP lounge and refreshments',
+                      price: 1999,
+                      color: 'orange',
+                    },
+                    {
+                      id: 'premium',
+                      icon: '✦',
+                      name: 'Premium Pass',
+                      desc: 'Premium seating with an excellent stage view',
+                      price: 1499,
+                      color: 'purple',
+                    },
+                    {
+                      id: 'general',
+                      icon: '♙',
+                      name: 'General Pass',
+                      desc: 'General admission area with open seating',
+                      price: 799,
+                      color: 'green',
+                    },
+                    {
+                      id: 'couple',
+                      icon: '♧',
+                      name: 'Couple Pass',
+                      desc: 'Entry for two with reserved paired seating',
+                      price: 2499,
+                      color: 'blue',
+                    },
+                  ];
+                  track ticket.id
+                ) {
+                  <button
+                    [class.selected]="selectedTicket() === ticket.id"
+                    (click)="chooseTicket(ticket.id)"
+                  >
+                    <span class="icon" [class]="ticket.color">{{ ticket.icon }}</span>
+                    <div>
+                      <h3>{{ ticket.name }}</h3>
+                      <p>{{ ticket.desc }}</p>
+                      <small>Instant confirmation</small>
+                    </div>
+                    <b>₹{{ ticket.price }}</b
+                    ><i>{{ selectedTicket() === ticket.id ? '✓' : '' }}</i>
+                  </button>
+                }
+              </div>
+            </div>
+            <app-order-summary
+              [basePrice]="basePrice()"
+              [parking]="0"
+              [total]="basePrice() + 106"
+              [seat]="selectedSeat()"
+              ><button class="primary-btn full" (click)="go('/app/events/summer/seats')">
+                Continue to Seat Selection →
+              </button></app-order-summary
+            >
+          </section>
+        }
+
+        @case ('seats') {
+          <app-stepper active="seat"></app-stepper>
+          <section class="checkout-layout">
+            <div>
+              <div class="section-title">
+                <div>
+                  <h1>Seat Selection</h1>
+                  <p>Choose your preferred seat for Summer Music Fest.</p>
+                </div>
+                <span class="available-pill">● 126 seats available</span>
+              </div>
+              <div class="seat-map">
+                <div class="stage">STAGE</div>
+                @for (row of ['A', 'B', 'C', 'D', 'E', 'F', 'G']; track row) {
+                  <div class="seat-row">
+                    <b>{{ row }}</b>
+                    @for (n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; track n) {
+                      <button
+                        [class.vip]="row === 'A' || row === 'B'"
+                        [class.taken]="(n + row.charCodeAt(0)) % 7 === 0"
+                        [class.selected]="selectedSeat() === row + n"
+                        [disabled]="(n + row.charCodeAt(0)) % 7 === 0"
+                        (click)="chooseSeat(row + n)"
+                      >
+                        {{ n }}
+                      </button>
+                    }
+                  </div>
+                }
+                <div class="seat-legend">
+                  <span><i class="seat-dot"></i>Available</span
+                  ><span><i class="seat-dot vip"></i>Premium</span
+                  ><span><i class="seat-dot selected"></i>Selected</span
+                  ><span><i class="seat-dot taken"></i>Unavailable</span>
+                </div>
+              </div>
+            </div>
+            <app-order-summary
+              [basePrice]="basePrice()"
+              [parking]="0"
+              [total]="basePrice() + 106"
+              [seat]="selectedSeat()"
+              ><p class="summary-selection">
+                Selected seat <b>{{ selectedSeat() }}</b>
+              </p>
+              <button class="primary-btn full" (click)="go('/app/events/summer/parking')">
+                Continue to Parking →</button
+              ><button class="text-btn" (click)="clearParking(); go('/app/checkout')">
+                Skip parking
+              </button></app-order-summary
+            >
+          </section>
+        }
+
+        @case ('parking-select') {
+          <app-stepper active="parking"></app-stepper>
+          <section class="checkout-layout">
+            <div>
+              <h1>Parking Selection</h1>
+              <p class="muted">Choose a convenient parking space near the venue.</p>
+              <div class="parking-layout">
+                <div class="parking-road">VENUE<br />ACCESS</div>
+                @for (zone of ['A', 'B', 'C']; track zone) {
+                  <section>
+                    <h3>
+                      Zone {{ zone }}
+                      <small>{{
+                        zone === 'B' ? 'Recommended' : zone === 'A' ? 'Closest' : 'Budget'
+                      }}</small>
+                    </h3>
+                    <div>
+                      @for (n of [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]; track n) {
+                        <button
+                          [class.busy]="n % 5 === 0"
+                          [class.selected]="selectedParking() === zone + n"
+                          [disabled]="n % 5 === 0"
+                          (click)="chooseParking(zone + n)"
+                        >
+                          {{ zone }}{{ n }}
+                        </button>
+                      }
+                    </div>
+                  </section>
+                }
+                <div class="seat-legend">
+                  <span><i class="seat-dot parking"></i>Available</span
+                  ><span><i class="seat-dot selected"></i>Selected</span
+                  ><span><i class="seat-dot taken"></i>Occupied</span>
+                </div>
+              </div>
+              <div class="help-strip">
+                ⓘ Parking is optional. Your reservation is valid from 4:00 PM to 11:30 PM.
+              </div>
+            </div>
+            <app-order-summary
+              [basePrice]="basePrice()"
+              [parking]="parkingPrice()"
+              [total]="total()"
+              [seat]="selectedSeat()"
+              ><p class="summary-selection">
+                Parking <b>{{ selectedParking() || 'Not selected' }}</b>
+              </p>
+              <button class="primary-btn full" (click)="go('/app/checkout')">
+                Review Booking →</button
+              ><button class="text-btn" (click)="clearParking(); go('/app/checkout')">
+                Skip parking
+              </button></app-order-summary
+            >
+          </section>
+        }
+
+        @case ('checkout') {
+          <section class="page-heading">
+            <div>
+              <button class="back-link" (click)="go('/app/events/summer/parking')">
+                ← Back to selection
+              </button>
+              <h1>Booking Summary / Checkout</h1>
+              <p>Review your details before proceeding to payment.</p>
+            </div>
+          </section>
+          <section class="checkout-layout">
+            <div>
+              <article class="review-card">
+                <h2>Review Your Booking</h2>
+                <div class="compact-event">
+                  <div class="event-photo p0"></div>
+                  <div>
+                    <span>CONCERT</span>
+                    <h2>Summer Music Fest</h2>
+                    <p>▣ 24 May 2026　◷ 6:00 PM</p>
+                    <p>📍 Jawaharlal Nehru Stadium, Chennai</p>
+                  </div>
+                  <span class="confirmed">Confirmed</span>
+                </div>
+                <hr />
+                <h3>Ticket Details</h3>
+                <div class="detail-list">
+                  <p>
+                    <span>Ticket type</span><b>{{ selectedTicket() | titlecase }} Pass</b>
+                  </p>
+                  <p>
+                    <span>Seat number</span><b>{{ selectedSeat() }}</b>
+                  </p>
+                  <p><span>Attendee</span><b>Priya Sharma</b></p>
+                </div>
+                <hr />
+                <h3>Parking Details</h3>
+                <div class="detail-list">
+                  <p>
+                    <span>Parking slot</span><b>{{ selectedParking() || 'Not selected' }}</b>
+                  </p>
+                  <p><span>Valid time</span><b>4:00 PM – 11:30 PM</b></p>
+                </div>
+              </article>
+              <article class="review-card">
+                <h3>Contact Information</h3>
+                <div class="contact-row">
+                  <label>Full name<input value="Priya Sharma" /></label
+                  ><label>Email address<input value="priya.sharma@email.com" /></label
+                  ><label>Phone number<input value="+91 98765 43210" /></label>
+                </div>
+              </article>
+            </div>
+            <aside class="order-panel">
+              <h2>Payment Summary</h2>
+              <div class="detail-list">
+                <p>
+                  <span>Ticket</span><b>₹{{ basePrice() }}</b>
+                </p>
+                <p>
+                  <span>Parking</span><b>₹{{ parkingPrice() }}</b>
+                </p>
+                <p><span>Convenience fee</span><b>₹88</b></p>
+                <p><span>GST (18%)</span><b>₹18</b></p>
+                @if (promoApplied()) {
+                  <p class="discount"><span>Promo discount</span><b>−₹300</b></p>
+                }
+              </div>
+              <div class="promo">
+                <input placeholder="Enter promo code" [(ngModel)]="promo" /><button
+                  (click)="applyPromo()"
+                >
+                  Apply
+                </button>
+              </div>
+              <div class="grand-total">
+                <span>Total Amount<small>Inclusive of all taxes</small></span
+                ><b>₹{{ total() }}</b>
+              </div>
+              <label class="terms"
+                ><input type="checkbox" checked /> I agree to the Terms & Conditions</label
+              ><button class="primary-btn full" (click)="go('/app/payment')">
+                Proceed to Payment →
+              </button>
+              <div class="secure-row">🔒 100% secure payments</div>
+            </aside>
+          </section>
+        }
+
+        @case ('payment') {
+          <section class="page-heading">
+            <div>
+              <button class="back-link" (click)="go('/app/checkout')">← Booking Summary</button>
+              <h1>Complete Your Payment</h1>
+              <p>Your booking is held for <b class="orange-text">09:42</b> minutes.</p>
+            </div>
+          </section>
+          <section class="checkout-layout payment-layout">
+            <div>
+              <article class="review-card">
+                <h2>Select Payment Method</h2>
+                <div class="payment-tabs">
+                  @for (
+                    method of [
+                      { id: 'card', icon: '▣', name: 'Credit / Debit Card' },
+                      { id: 'upi', icon: '◆', name: 'UPI' },
+                      { id: 'net', icon: '▦', name: 'Net Banking' },
+                      { id: 'wallet', icon: '▤', name: 'Wallet' },
+                    ];
+                    track method.id
+                  ) {
+                    <button
+                      [class.active]="selectedPayment() === method.id"
+                      (click)="choosePayment(method.id)"
+                    >
+                      <b>{{ method.icon }}</b
+                      >{{ method.name }}
+                    </button>
+                  }
+                </div>
+                @if (selectedPayment() === 'card') {
+                  <div class="card-form">
+                    <label
+                      >Card Number
+                      <div>
+                        <span>▣</span
+                        ><input
+                          placeholder="1234 5678 9012 3456"
+                          [(ngModel)]="cardNumber"
+                        /></div></label
+                    ><label
+                      >Name on Card
+                      <div><input placeholder="PRIYA SHARMA" /></div
+                    ></label>
+                    <section>
+                      <label
+                        >Expiry Date
+                        <div><input placeholder="MM / YY" [(ngModel)]="expiry" /></div></label
+                      ><label
+                        >CVV
+                        <div><input type="password" placeholder="•••" [(ngModel)]="cvv" /></div
+                      ></label>
+                    </section>
+                    <label class="save-card"
+                      ><input type="checkbox" /> Save card securely for future payments</label
+                    >
+                  </div>
+                } @else {
+                  <div class="method-placeholder">
+                    <span>{{
+                      selectedPayment() === 'upi' ? '◆' : selectedPayment() === 'net' ? '▦' : '▤'
+                    }}</span>
+                    <h3>Pay using {{ selectedPayment() | uppercase }}</h3>
+                    <p>You’ll be redirected to your bank’s secure payment page.</p>
+                  </div>
+                }
+                <div class="protected">🛡 Your payment information is encrypted and protected.</div>
+              </article>
+            </div>
+            <aside class="order-panel">
+              <h2>Order Summary</h2>
+              <div class="order-event">
+                <div class="event-photo p0"></div>
+                <div><b>Summer Music Fest</b><small>24 May 2026 • Chennai</small></div>
+              </div>
+              <div class="detail-list">
+                <p>
+                  <span>Ticket + Seat</span><b>₹{{ basePrice() }}</b>
+                </p>
+                <p>
+                  <span>Parking {{ selectedParking() }}</span
+                  ><b>₹{{ parkingPrice() }}</b>
+                </p>
+                <p><span>Taxes & fees</span><b>₹106</b></p>
+              </div>
+              <div class="grand-total">
+                <span>Total Amount</span><b>₹{{ total() }}</b>
+              </div>
+              <button class="primary-btn full pay-button" (click)="pay()">
+                🔒 Pay ₹{{ total() }}</button
+              ><small class="centered">By paying, you agree to Eventora’s terms.</small>
+            </aside>
+          </section>
+        }
+
+        @case ('confirmed') {
+          <section class="success-page">
+            <div class="confetti">✦　•　◇　✦　•　◇</div>
+            <span class="success-icon">✓</span>
+            <h1>Booking Confirmed!</h1>
+            <p>Your booking was successful. We’ve sent the details to your email.</p>
+            <article>
+              <div class="event-photo p0"></div>
+              <div>
+                <span>CONCERT</span>
+                <h2>Summer Music Fest</h2>
+                <p>▣ 24 May 2026　◷ 6:00 PM</p>
+                <p>📍 Jawaharlal Nehru Stadium, Chennai</p>
+                <div class="success-meta">
+                  <span
+                    >Seat<b>{{ selectedSeat() }}</b></span
+                  ><span
+                    >Ticket<b>{{ selectedTicket() | titlecase }}</b></span
+                  ><span
+                    >Parking<b>{{ selectedParking() || '—' }}</b></span
+                  ><span
+                    >Total Paid<b>₹{{ total() }}</b></span
+                  >
+                </div>
+              </div>
+            </article>
+            <div class="success-actions">
+              <button class="primary-btn" (click)="go('/app/ticket/summer')">
+                View Your Ticket →</button
+              ><button class="outline-btn" (click)="go('/app/bookings/summer')">
+                Go to My Bookings</button
+              ><button class="outline-btn" (click)="download('Receipt')">Download Receipt</button>
+            </div>
+            <section class="next-steps">
+              <h2>What happens next?</h2>
+              <div>
+                <p>✉<b>Check your email</b><small>Your tickets are already on their way.</small></p>
+                <p>▣<b>Save your QR ticket</b><small>Show it at the event entrance.</small></p>
+                <p>Ⓟ<b>Follow parking signs</b><small>Use your slot from 4:00 PM.</small></p>
+              </div>
+            </section>
+          </section>
+        }
+
+        @case ('bookings') {
+          <section class="page-heading">
+            <div>
+              <h1>My Bookings</h1>
+              <p>Manage your upcoming and past event reservations.</p>
+            </div>
+            <button class="outline-btn" (click)="go('/customer/events')">＋ Book New Event</button>
+          </section>
+          <div class="booking-tabs">
+            <button
+              type="button"
+              [class.active]="bookingTab() === 'upcoming'"
+              (click)="bookingTab.set('upcoming')"
+            >
+              Upcoming <span>2</span></button
+            ><button
+              type="button"
+              [class.active]="bookingTab() === 'completed'"
+              (click)="bookingTab.set('completed')"
+            >
+              Completed <span>3</span></button
+            ><button
+              type="button"
+              [class.active]="bookingTab() === 'cancelled'"
+              (click)="bookingTab.set('cancelled')"
+            >
+              Cancelled <span>1</span>
+            </button>
+          </div>
+          <section class="booking-list">
+            @for (event of events; track event.id) {
+              <article>
+                <div
+                  class="event-thumb"
+                  [style.background-position]="spritePosition(event.image)"
+                ></div>
+                <div>
+                  <span class="status" [class.green-status]="event.id !== 'tech'">{{
+                    event.id === 'tech' ? 'Upcoming' : 'Confirmed'
+                  }}</span>
+                  <h2>{{ event.title }}</h2>
+                  <p>▣ {{ event.date }}　◷ {{ event.time }}</p>
+                  <p>📍 {{ event.venue }}</p>
+                  <small>{{ event.format }} • 2 tickets</small>
+                </div>
+                <div class="booking-price">
+                  <span>Total Paid</span><b>₹{{ event.price + 700 }}</b
+                  ><button
+                    class="primary-btn"
+                    (click)="
+                      event.id === 'summer' ? go('/app/bookings/summer') : flash('Booking opened')
+                    "
+                  >
+                    View Details →</button
+                  ><button class="text-btn" (click)="download()">Download ticket</button>
+                </div>
+              </article>
+            }
+          </section>
+        }
+
+        @case ('booking-detail') {
+          <section class="page-heading">
+            <div>
+              <button class="back-link" (click)="go('/customer/bookings')">
+                ← Back to My Bookings
+              </button>
+              <h1>Booking Details</h1>
+              <p>Booking ID #EP-2026-05124</p>
+            </div>
+          </section>
+          <article class="booking-detail-card">
+            <div class="event-photo p0"></div>
+            <div>
+              <span class="status green-status">● Confirmed</span>
+              <h1>Summer Music Fest</h1>
+              <p>▣ Sunday, 24 May 2026　◷ 6:00 PM</p>
+              <p>📍 Jawaharlal Nehru Stadium, Chennai</p>
+            </div>
+            <div class="booking-progress">
+              <span class="done">✓<small>Confirmed</small></span
+              ><i></i><span class="done">✓<small>Ticket Ready</small></span
+              ><i></i><span>3<small>Parking Access</small></span>
+            </div>
+          </article>
+          <section class="detail-panels">
+            <article>
+              <h2>Your Details</h2>
+              <div class="detail-list">
+                <p><span>Ticket type</span><b>Premium Pass</b></p>
+                <p>
+                  <span>Seats</span><b>{{ selectedSeat() }}, A3</b>
+                </p>
+                <p><span>Attendee</span><b>Priya Sharma</b></p>
+                <p>
+                  <span>Total paid</span><b>₹{{ total() }}</b>
+                </p>
+              </div>
+              <div class="detail-actions">
+                <button class="primary-btn" (click)="go('/app/ticket/summer')">View Ticket →</button
+                ><button class="outline-btn" (click)="download()">Download Ticket</button
+                ><button class="danger-btn" (click)="bookingModal.set(true)">Cancel Booking</button>
+              </div>
+            </article>
+            <article>
+              <h2>Parking Details</h2>
+              <div class="parking-pass">
+                <span>Ⓟ</span>
+                <div>
+                  <small>ZONE B</small><b>{{ selectedParking() || 'B27' }}</b>
+                  <p>Valid 4:00 PM – 11:30 PM</p>
+                </div>
+                <div class="mini-qr"></div>
+              </div>
+              <button class="outline-btn full" (click)="go('/customer/parking')">
+                View Parking Pass →
+              </button>
+              <h3>Need Help?</h3>
+              <button class="text-btn" (click)="flash('Support chat started')">
+                Contact Support
+              </button>
+            </article>
+          </section>
+        }
+
+        @case ('ticket') {
+          <section class="page-heading">
+            <div>
+              <button class="back-link" (click)="go('/app/bookings/summer')">
+                ← Booking Details
+              </button>
+              <h1>Your Ticket</h1>
+              <p>Show this ticket at the entry gate.</p>
+            </div>
+            <span class="status green-status">● Valid Ticket</span>
+          </section>
+          <section class="ticket-view">
+            <article>
+              <div class="ticket-main">
+                <div class="event-photo p0"></div>
+                <div>
+                  <span>SUMMER<br />MUSIC<br />FEST</span>
+                </div>
+              </div>
+              <div class="ticket-data">
+                <span>CONCERT</span>
+                <h1>Summer Music Fest</h1>
+                <p>▣ Sunday, 24 May 2026 • 6:00 PM</p>
+                <p>📍 Jawaharlal Nehru Stadium, Chennai</p>
+                <div>
+                  <span>Ticket Holder<b>Priya Sharma</b></span
+                  ><span>Ticket Type<b>Premium Pass</b></span
+                  ><span
+                    >Seat<b>{{ selectedSeat() }}</b></span
+                  ><span
+                    >Amount<b>₹{{ basePrice() }}</b></span
+                  >
+                </div>
+              </div>
+            </article>
+            <aside>
+              <small>BOOKING ID</small><b>#EP-05124</b>
+              <div class="large-qr"></div>
+              <p>Scan at Entry Gate</p>
+              <small>Keep your screen brightness high for faster scanning.</small
+              ><button class="primary-btn full" (click)="download()">Download Ticket</button
+              ><button class="outline-btn full" (click)="flash('Ticket shared')">
+                Share Ticket
+              </button>
+            </aside>
+          </section>
+          <section class="instructions">
+            <article>
+              <h2>Entry Instructions</h2>
+              <ul>
+                <li>Arrive 30 minutes before the event starts.</li>
+                <li>Keep a valid photo ID ready.</li>
+                <li>This QR can be scanned only once.</li>
+              </ul>
+            </article>
+            <article>
+              <h2>Parking Details</h2>
+              <p>Ⓟ Zone B • Slot {{ selectedParking() || 'B27' }}</p>
+              <p>Entry from Gate 2 after 4:00 PM.</p>
+            </article>
+          </section>
+        }
+
+        @case ('my-parking') {
+          <section class="page-heading">
+            <div>
+              <h1>My Parking</h1>
+              <p>View and manage your event parking reservations.</p>
+            </div>
+            <button class="primary-btn" (click)="go('/customer/events')">＋ Reserve Parking</button>
+          </section>
+          <section class="metrics four">
+            <article>
+              <span class="metric-icon green">Ⓟ</span>
+              <div><small>Active Passes</small><b>2</b></div>
+              <i class="spark green-line"></i>
+            </article>
+            <article>
+              <span class="metric-icon orange">▦</span>
+              <div><small>Upcoming</small><b>3</b></div>
+              <i class="spark orange-line"></i>
+            </article>
+            <article>
+              <span class="metric-icon blue">✓</span>
+              <div><small>Completed</small><b>6</b></div>
+              <i class="spark blue-line"></i>
+            </article>
+            <article>
+              <span class="metric-icon red">×</span>
+              <div><small>Cancelled</small><b>1</b></div>
+              <i class="spark red-line"></i>
+            </article>
+          </section>
+          <div class="section-title">
+            <div>
+              <h2>Your Parking Reservations</h2>
+              <p>All current and upcoming parking slots.</p>
+            </div>
+            <div class="filters small">
+              <button
+                type="button"
+                [class.active]="parkingFilter() === 'all'"
+                (click)="parkingFilter.set('all')"
+              >
+                All</button
+              ><button
+                type="button"
+                [class.active]="parkingFilter() === 'active'"
+                (click)="parkingFilter.set('active')"
+              >
+                Active</button
+              ><button
+                type="button"
+                [class.active]="parkingFilter() === 'upcoming'"
+                (click)="parkingFilter.set('upcoming')"
+              >
+                Upcoming
+              </button>
+            </div>
+          </div>
+          <section class="parking-list">
+            @for (event of events; track event.id) {
+              <article>
+                <div
+                  class="event-thumb"
+                  [style.background-position]="spritePosition(event.image)"
+                ></div>
+                <div>
+                  <h3>{{ event.title }}</h3>
+                  <p>📍 {{ event.venue }}</p>
+                  <p>▣ {{ event.date }}　◷ {{ event.time }}</p>
+                </div>
+                <div class="slot">
+                  <small>Parking Slot</small
+                  ><b>{{
+                    event.id === 'summer'
+                      ? 'B27'
+                      : event.id === 'food'
+                        ? 'C10'
+                        : event.id === 'tech'
+                          ? 'A08'
+                          : 'D12'
+                  }}</b
+                  ><span class="status green-status">Active</span>
+                </div>
+                <div>
+                  <button class="outline-btn" (click)="flash('Parking pass opened')">
+                    View Pass</button
+                  ><button class="text-btn" (click)="download('Parking pass')">Download</button>
+                </div>
+              </article>
+            }
+          </section>
+        }
+
+        @case ('payments') {
+          <section class="page-heading">
+            <div>
+              <h1>Payment History</h1>
+              <p>View transactions, receipts, refunds and payment status.</p>
+            </div>
+          </section>
+          <section class="metrics four">
+            <article>
+              <span class="metric-icon purple">◆</span>
+              <div><small>Total Payments</small><b>₹18,450</b></div>
+            </article>
+            <article>
+              <span class="metric-icon green">✓</span>
+              <div><small>Successful</small><b>12</b></div>
+            </article>
+            <article>
+              <span class="metric-icon orange">↺</span>
+              <div><small>Refunds</small><b>2</b></div>
+            </article>
+            <article>
+              <span class="metric-icon yellow">◷</span>
+              <div><small>Pending Payments</small><b>1</b></div>
+            </article>
+          </section>
+          <div class="table-toolbar">
+            <div class="event-search">⌕ <input placeholder="Search transactions" /></div>
+            <button class="outline-btn" type="button" (click)="flash('Date range selector opened')">
+              ▣ All time</button
+            ><button class="outline-btn" type="button" (click)="download('Payment history')">
+              ⇩ Export
+            </button>
+          </div>
+          <div class="data-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>EVENT</th>
+                  <th>TRANSACTION ID</th>
+                  <th>DATE</th>
+                  <th>METHOD</th>
+                  <th>AMOUNT</th>
+                  <th>STATUS</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (event of events.concat(events); track $index) {
+                  <tr>
+                    <td>
+                      <div class="table-event">
+                        <span
+                          class="tiny-thumb"
+                          [style.background-position]="spritePosition(event.image)"
+                        ></span
+                        ><b>{{ event.title }}</b>
+                      </div>
+                    </td>
+                    <td>#TXN-260{{ 124 + $index }}</td>
+                    <td>{{ event.date }}</td>
+                    <td>{{ $index % 2 ? 'UPI' : 'Card •••• 4242' }}</td>
+                    <td>₹{{ event.price + 700 }}</td>
+                    <td><span class="status green-status">Paid</span></td>
+                    <td>
+                      <button
+                        class="text-btn"
+                        (click)="$index === 0 ? go('/app/payments/receipt') : download('Receipt')"
+                      >
+                        View receipt
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @case ('receipt') {
+          <section class="page-heading">
+            <div>
+              <button class="back-link" (click)="go('/customer/payments')">
+                ← Payment History
+              </button>
+              <h1>Payment Receipt</h1>
+              <p>Transaction #TXN-260124</p>
+            </div>
+            <button class="outline-btn" (click)="download('Receipt')">⇩ Download PDF</button>
+          </section>
+          <article class="receipt-card">
+            <header>
+              <span class="success-icon small-success">✓</span>
+              <div>
+                <span>PAYMENT SUCCESSFUL</span>
+                <h2>Your payment was successful</h2>
+                <p>Thank you! Your payment has been received.</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Receipt No.</dt>
+                  <dd>#RCP-2026-00124</dd>
+                </div>
+                <div>
+                  <dt>Booking ID</dt>
+                  <dd>#EP-05124</dd>
+                </div>
+                <div>
+                  <dt>Transaction ID</dt>
+                  <dd>#TXN-260124</dd>
+                </div>
+                <div>
+                  <dt>Paid on</dt>
+                  <dd>03 May 2026</dd>
+                </div>
+              </dl>
+            </header>
+            <section>
+              <div class="order-event">
+                <div class="event-photo p0"></div>
+                <div>
+                  <h2>Summer Music Fest</h2>
+                  <p>24 May 2026 • 6:00 PM</p>
+                  <p>Chennai Stadium</p>
+                </div>
+              </div>
+              <div class="receipt-summary">
+                <h3>Payment Summary</h3>
+                <p>
+                  <span>Ticket subtotal</span><b>₹{{ basePrice() }}</b>
+                </p>
+                <p>
+                  <span>Parking</span><b>₹{{ parkingPrice() }}</b>
+                </p>
+                <p><span>Taxes & fees</span><b>₹106</b></p>
+                <p class="total">
+                  <span>Total Paid</span><b>₹{{ total() }}</b>
+                </p>
+              </div>
+            </section>
+            <footer>
+              <div><span>Payment method</span><b>Visa ending 4242</b></div>
+              <div><span>Billing name</span><b>Priya Sharma</b></div>
+              <div><span>Payment status</span><b class="green-text">Paid</b></div>
+            </footer>
+            <div class="receipt-note">
+              ✓ Thank you! Your ticket and parking pass are now active.
+            </div>
+          </article>
+        }
+
+        @case ('notifications') {
+          <section class="page-heading">
+            <div>
+              <h1>Notifications</h1>
+              <p>Stay updated on bookings, payments, reminders and offers.</p>
+            </div>
+            <button class="text-btn" (click)="flash('All notifications marked as read')">
+              Mark all as read
+            </button>
+          </section>
+          <div class="notification-tabs">
+            <button
+              type="button"
+              [class.active]="notificationFilter() === 'all'"
+              (click)="notificationFilter.set('all')"
+            >
+              All Notifications <span>8</span></button
+            ><button
+              type="button"
+              [class.active]="notificationFilter() === 'unread'"
+              (click)="notificationFilter.set('unread')"
+            >
+              Unread <span>3</span></button
+            ><button
+              type="button"
+              [class.active]="notificationFilter() === 'bookings'"
+              (click)="notificationFilter.set('bookings')"
+            >
+              Bookings</button
+            ><button
+              type="button"
+              [class.active]="notificationFilter() === 'payments'"
+              (click)="notificationFilter.set('payments')"
+            >
+              Payments</button
+            ><button
+              type="button"
+              [class.active]="notificationFilter() === 'parking'"
+              (click)="notificationFilter.set('parking')"
+            >
+              Parking
+            </button>
+          </div>
+          <section class="notification-page-grid">
+            <div class="notifications-feed">
+              @for (
+                item of [
+                  {
+                    icon: '✓',
+                    color: 'green',
+                    title: 'Booking Confirmed',
+                    text: 'Your Summer Music Fest booking has been confirmed.',
+                    time: '2 min ago',
+                  },
+                  {
+                    icon: '◆',
+                    color: 'purple',
+                    title: 'Payment Successful',
+                    text: 'Payment of ₹2,450 was completed successfully.',
+                    time: '20 min ago',
+                  },
+                  {
+                    icon: '▣',
+                    color: 'orange',
+                    title: 'Event Reminder',
+                    text: 'Summer Music Fest starts in 3 days. Get ready!',
+                    time: '1 day ago',
+                  },
+                  {
+                    icon: 'Ⓟ',
+                    color: 'green',
+                    title: 'Parking Slot Reserved',
+                    text: 'Slot B27 is reserved from 4:00 PM on event day.',
+                    time: '1 day ago',
+                  },
+                  {
+                    icon: '✦',
+                    color: 'purple',
+                    title: 'Tickets Ready',
+                    text: 'Your QR ticket is ready to download.',
+                    time: '2 days ago',
+                  },
+                ];
+                track item.title
+              ) {
+                <article>
+                  <span class="metric-icon" [class]="item.color">{{ item.icon }}</span>
+                  <div>
+                    <h3>{{ item.title }}</h3>
+                    <p>{{ item.text }}</p>
+                    <small>{{ item.time }}</small>
+                  </div>
+                  <button (click)="flash('Notification archived')">•••</button>
+                </article>
+              }
+            </div>
+            <aside class="preferences">
+              <h2>Notification Preferences</h2>
+              <p>Choose what updates you receive.</p>
+              @for (
+                pref of [
+                  { id: 'booking', name: 'Booking Updates' },
+                  { id: 'payment', name: 'Payment Updates' },
+                  { id: 'event', name: 'Event Reminders' },
+                  { id: 'parking', name: 'Parking Alerts' },
+                  { id: 'ticket', name: 'Ticket Updates' },
+                  { id: 'offers', name: 'Offers & News' },
+                ];
+                track pref.id
+              ) {
+                <div>
+                  <span
+                    ><b>{{ pref.name }}</b
+                    ><small>Email and in-app</small></span
+                  ><button
+                    class="toggle"
+                    [class.on]="notifications()[pref.id]"
+                    (click)="toggleNotification(pref.id)"
+                  >
+                    <i></i>
+                  </button>
+                </div>
+              }
+            </aside>
+          </section>
+        }
+
+        @case ('favorites') {
+          <section class="page-heading">
+            <div>
+              <span class="eyebrow">SAVED FOR LATER</span>
+              <h1>Favorite Events</h1>
+              <p>Your saved events, all in one place.</p>
+            </div>
+            <button class="outline-btn" (click)="go('/customer/events')">
+              Discover More Events
+            </button>
+          </section>
+          <section class="event-cards">
+            @for (event of events; track event.id) {
+              @if (favoriteIds().has(event.id)) {
+                <article>
+                  <div
+                    class="event-thumb"
+                    [style.background-position]="spritePosition(event.image)"
+                  >
+                    <button class="fav saved" (click)="toggleFavorite(event.id)">♥</button
+                    ><span>{{ event.category }}</span>
+                  </div>
+                  <div class="event-card-body">
+                    <small>{{ event.status }}</small>
+                    <h3>{{ event.title }}</h3>
+                    <p>📍 {{ event.venue }}</p>
+                    <p>▣ {{ event.date }} • {{ event.time }}</p>
+                    <div>
+                      <b>From ₹{{ event.price }}</b
+                      ><button (click)="go('/customer/events/' + event.id)">View details →</button>
+                    </div>
+                  </div>
+                </article>
+              }
+            } @empty {
+              <div class="empty">No saved events yet.</div>
+            }
+          </section>
+        }
+
+        @case ('profile') {
+          <section class="page-heading">
+            <div>
+              <span class="eyebrow">MY ACCOUNT</span>
+              <h1>Profile</h1>
+              <p>Keep your personal and contact details up to date.</p>
+            </div>
+            <button class="primary-btn" (click)="flash('Profile updated successfully')">
+              Save Changes
+            </button>
+          </section>
+          <section class="customer-form-grid">
+            <article class="account-panel">
+              <div class="profile-head">
+                <span class="avatar profile-avatar">PS</span>
+                <div>
+                  <h2>Priya Sharma</h2>
+                  <p>Customer since March 2026</p>
+                  <button class="outline-btn" type="button" (click)="flash('Photo picker opened')">
+                    Change Photo
+                  </button>
+                </div>
+              </div>
+              <div class="customer-form">
+                <label>Full Name<input value="Priya Sharma" /></label
+                ><label>Email Address<input type="email" value="priya@example.com" /></label
+                ><label>Mobile Number<input value="+94 77 123 4567" /></label
+                ><label>Preferred City<input value="Colombo" /></label
+                ><label class="full">Address<textarea>Colombo, Sri Lanka</textarea></label>
+              </div>
+            </article>
+            <aside class="account-panel status-panel">
+              <span class="success-icon small-success">✓</span>
+              <h2>Account Verified</h2>
+              <p>Your account is active and ready for event bookings.</p>
+              <hr />
+              <div><span>Bookings</span><b>7</b></div>
+              <div><span>Parking Reservations</span><b>4</b></div>
+              <div><span>Total Spent</span><b>₹18,450</b></div>
+            </aside>
+          </section>
+        }
+
+        @case ('support') {
+          <section class="page-heading">
+            <div>
+              <span class="eyebrow">HELP CENTER</span>
+              <h1>How can we help?</h1>
+              <p>Quick support for bookings, payments, tickets and parking.</p>
+            </div>
+          </section>
+          <section class="support-grid">
+            <article class="support-hero">
+              <div>
+                <span>24/7 SELF SERVICE</span>
+                <h2>Find the answer without the wait.</h2>
+                <p>Browse common topics or start a support request for your booking.</p>
+                <div class="event-search">⌕ <input placeholder="Search help topics..." /></div>
+              </div>
+            </article>
+            <article class="support-card">
+              <span>▣</span>
+              <h3>Booking Help</h3>
+              <p>Changes, cancellations and booking details.</p>
+              <button (click)="flash('Booking help opened')">View Help →</button>
+            </article>
+            <article class="support-card">
+              <span>◆</span>
+              <h3>Payment Support</h3>
+              <p>Receipts, payment status and refunds.</p>
+              <button (click)="flash('Payment support opened')">View Help →</button>
+            </article>
+            <article class="support-card">
+              <span>Ⓟ</span>
+              <h3>Parking Support</h3>
+              <p>Parking slots, locations and reservation status.</p>
+              <button (click)="flash('Parking help opened')">View Help →</button>
+            </article>
+            <article class="support-card">
+              <span>▦</span>
+              <h3>Ticket / QR Help</h3>
+              <p>Access, download and scan your QR ticket.</p>
+              <button (click)="flash('Ticket support opened')">View Help →</button>
+            </article>
+          </section>
+        }
+
+        @case ('settings') {
+          <section class="page-heading">
+            <div>
+              <span class="eyebrow">PREFERENCES</span>
+              <h1>Settings</h1>
+              <p>Personalize notifications, privacy and booking preferences.</p>
+            </div>
+            <button class="primary-btn" (click)="flash('Settings saved')">Save Settings</button>
+          </section>
+          <section class="customer-settings">
+            <nav>
+              <button
+                type="button"
+                [class.active]="settingsTab() === 'general'"
+                (click)="settingsTab.set('general')"
+              >
+                General</button
+              ><button
+                type="button"
+                [class.active]="settingsTab() === 'security'"
+                (click)="settingsTab.set('security')"
+              >
+                Security</button
+              ><button
+                type="button"
+                [class.active]="settingsTab() === 'notifications'"
+                (click)="settingsTab.set('notifications')"
+              >
+                Notifications</button
+              ><button
+                type="button"
+                [class.active]="settingsTab() === 'privacy'"
+                (click)="settingsTab.set('privacy')"
+              >
+                Privacy
+              </button>
+            </nav>
+            <article>
+              <h2>General Preferences</h2>
+              <div class="customer-form">
+                <label
+                  >Language<select>
+                    <option>English</option>
+                    <option>Tamil</option>
+                    <option>Sinhala</option>
+                  </select></label
+                ><label
+                  >Currency<select>
+                    <option>LKR — Sri Lankan Rupee</option>
+                  </select></label
+                ><label>Default City<input value="Colombo" /></label
+                ><label
+                  >Date Format<select>
+                    <option>DD MMM YYYY</option>
+                  </select></label
+                >
+              </div>
+              <hr />
+              <h3>Booking Preferences</h3>
+              @for (
+                pref of [
+                  'Remember my last ticket type',
+                  'Show parking option during booking',
+                  'Send event reminders',
+                  'Email payment receipts',
+                ];
+                track pref
+              ) {
+                <label class="preference-row"
+                  ><span
+                    ><b>{{ pref }}</b
+                    ><small>Recommended for a smoother booking experience.</small></span
+                  ><input type="checkbox" checked
+                /></label>
+              }
+            </article>
+          </section>
+        }
+
+        @case ('admin') {
+          <section class="welcome-row">
+            <div>
+              <h1>Welcome back, Kavin! 👋</h1>
+              <p>Here’s what’s happening in your system today.</p>
+            </div>
+            <button class="primary-btn" (click)="flash('Report exported')">⇩ Export Report</button>
+          </section>
+          <section class="metrics four admin-metrics">
+            <article>
+              <span class="metric-icon green">♙</span>
+              <div><small>Total Users</small><b>128</b><em>+12.8%</em></div>
+              <i class="spark green-line"></i>
+            </article>
+            <article>
+              <span class="metric-icon orange">▣</span>
+              <div>
+                <small>Pending Approvals</small><b>16</b><em class="orange-text">Needs review</em>
+              </div>
+              <i class="spark orange-line"></i>
+            </article>
+            <article>
+              <span class="metric-icon blue">▤</span>
+              <div><small>Total Bookings</small><b>842</b><em>+8.2%</em></div>
+              <i class="spark blue-line"></i>
+            </article>
+            <article>
+              <span class="metric-icon green">●</span>
+              <div><small>Total Revenue</small><b>₹8,45,230</b><em>+14.6%</em></div>
+              <i class="spark green-line"></i>
+            </article>
+          </section>
+          <section class="admin-grid">
+            <article class="panel wide">
+              <div class="section-title">
+                <div>
+                  <h2>Pending Approvals</h2>
+                  <p>Events and organizers waiting for review</p>
+                </div>
+                <button type="button" (click)="go('/admin/approvals')">View All</button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>REQUEST</th>
+                    <th>SUBMITTED BY</th>
+                    <th>DATE</th>
+                    <th>TYPE</th>
+                    <th>STATUS</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (
+                    name of [
+                      'AR Rahman Live in Chennai',
+                      'Tech Fest 2026',
+                      'Food Carnival',
+                      'IPL Fan Park',
+                    ];
+                    track name
+                  ) {
+                    <tr>
+                      <td>
+                        <b>{{ name }}</b>
+                      </td>
+                      <td>{{ name.includes('Tech') ? 'Nexa Events' : 'Spark Live' }}</td>
+                      <td>May 08, 2026</td>
+                      <td>Event</td>
+                      <td><span class="status waiting">Pending</span></td>
+                      <td>
+                        <button class="table-action" (click)="flash(name + ' approved')">✓</button
+                        ><button class="table-action reject" (click)="flash(name + ' rejected')">
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </article>
+            <article class="panel">
+              <h2>System Overview</h2>
+              <div class="donut">
+                <span>136<b>Total</b></span>
+              </div>
+              <ul class="legend-list">
+                <li><i class="green"></i>Approved <b>102</b></li>
+                <li><i class="orange"></i>Pending <b>16</b></li>
+                <li><i class="red"></i>Rejected <b>8</b></li>
+              </ul>
+            </article>
+          </section>
+          <section class="admin-grid">
+            <article class="panel">
+              <div class="section-title">
+                <h2>Recent Activity</h2>
+                <button type="button" (click)="go('/admin/notifications')">View All</button>
+              </div>
+              <ul class="activity-list">
+                <li>
+                  <span class="dot green">✓</span>
+                  <div><b>Event approved</b><small>AR Rahman Live • 12 minutes ago</small></div>
+                </li>
+                <li>
+                  <span class="dot blue">♙</span>
+                  <div>
+                    <b>New organizer registered</b><small>Nexa Events • 45 minutes ago</small>
+                  </div>
+                </li>
+                <li>
+                  <span class="dot orange">◆</span>
+                  <div><b>Refund requested</b><small>Booking #EP-04582 • 1 hour ago</small></div>
+                </li>
+              </ul>
+            </article>
+            <article class="panel quick-admin">
+              <h2>Quick Actions</h2>
+              <div>
+                <button (click)="flash('Create event form opened')">
+                  ＋<span>Create Event</span></button
+                ><button (click)="flash('Approval queue opened')">
+                  ✓<span>Review Approvals</span></button
+                ><button (click)="flash('Users opened')">♙<span>Manage Users</span></button
+                ><button (click)="flash('Reports opened')">▥<span>View Reports</span></button>
+              </div>
+            </article>
+          </section>
+        }
+
+        @case ('organizer') {
+          <section class="welcome-row">
+            <div>
+              <h1>Organizer Dashboard ✨</h1>
+              <p>Manage your events and keep an eye on performance.</p>
+            </div>
+            <button class="primary-btn" (click)="flash('Create Event wizard opened')">
+              ＋ Create Event
+            </button>
+          </section>
+          <section class="metrics five">
+            <article>
+              <span class="metric-icon purple">▣</span>
+              <div><small>Active Events</small><b>12</b><em>+2 this month</em></div>
+            </article>
+            <article>
+              <span class="metric-icon orange">◷</span>
+              <div><small>Pending Approval</small><b>3</b></div>
+            </article>
+            <article>
+              <span class="metric-icon green">✓</span>
+              <div><small>Approved Events</small><b>9</b></div>
+            </article>
+            <article>
+              <span class="metric-icon blue">▤</span>
+              <div><small>Total Bookings</small><b>842</b></div>
+            </article>
+            <article>
+              <span class="metric-icon purple">●</span>
+              <div><small>Total Revenue</small><b>₹8,45,230</b></div>
+            </article>
+          </section>
+          <article class="event-workflow panel">
+            <h2>Event Workflow</h2>
+            <div>
+              @for (
+                step of [
+                  { icon: '＋', name: 'Create Event' },
+                  { icon: '◆', name: 'Add Tickets' },
+                  { icon: '▦', name: 'Seat & Ticket Setup' },
+                  { icon: 'Ⓟ', name: 'Parking' },
+                  { icon: '▤', name: 'Review & Publish' },
+                  { icon: '✓', name: 'Approved' },
+                ];
+                track step.name
+              ) {
+                <button (click)="flash(step.name + ' opened')">
+                  <span>{{ step.icon }}</span
+                  ><b>{{ step.name }}</b>
+                </button>
+              }
+            </div>
+          </article>
+          <section class="admin-grid">
+            <article class="panel wide">
+              <div class="section-title">
+                <div>
+                  <h2>My Events</h2>
+                  <p>Recent events and current status</p>
+                </div>
+                <button type="button" (click)="go('/organizer/my-events')">View All</button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>EVENT</th>
+                    <th>DATE</th>
+                    <th>BOOKINGS</th>
+                    <th>REVENUE</th>
+                    <th>STATUS</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (event of events; track event.id) {
+                    <tr>
+                      <td>
+                        <div class="table-event">
+                          <span
+                            class="tiny-thumb"
+                            [style.background-position]="spritePosition(event.image)"
+                          ></span
+                          ><b>{{ event.title }}</b>
+                        </div>
+                      </td>
+                      <td>{{ event.date }}</td>
+                      <td>{{ 128 + event.image * 43 }}</td>
+                      <td>₹{{ event.price * 82 }}</td>
+                      <td><span class="status green-status">Published</span></td>
+                      <td>
+                        <button class="text-btn" (click)="flash('Event editor opened')">
+                          Manage
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </article>
+            <article class="panel">
+              <h2>Quick Actions</h2>
+              <div class="organizer-actions">
+                <button type="button" (click)="go('/organizer/events/create/type')">
+                  ◇<span>Create Event</span></button
+                ><button type="button" (click)="go('/organizer/events/summer/ticket-pricing')">
+                  ◆<span>Ticket Setup</span></button
+                ><button type="button" (click)="go('/organizer/events/summer/parking-setup')">
+                  Ⓟ<span>Parking Setup</span></button
+                ><button type="button" (click)="go('/organizer/reports')">
+                  ▥<span>Sales Report</span>
+                </button>
+              </div>
+              <div class="revenue-box">
+                <small>Revenue Snapshot</small><b>₹8,45,230</b><span>+14.6% this month</span>
+              </div>
+            </article>
+          </section>
+        }
+      }
+    </div>
+  </main>
+
+  @if (bookingModal()) {
+    <div class="modal-backdrop" (click)="bookingModal.set(false)">
+      <article class="cancel-modal" (click)="$event.stopPropagation()">
+        <button class="close" (click)="bookingModal.set(false)">×</button
+        ><span class="warning-icon">⚠</span>
+        <h2>Cancel Booking?</h2>
+        <p>Are you sure you want to cancel this booking? This action cannot be undone.</p>
+        <div class="modal-event">
+          <div class="event-photo p0"></div>
+          <div>
+            <b>Summer Music Fest</b><small>24 May 2026 • Chennai Stadium</small
+            ><span>Refund amount: ₹{{ total() - 250 }}</span>
+          </div>
+        </div>
+        <label
+          >Reason for cancellation<select>
+            <option>Select a reason</option>
+            <option>Change of plans</option>
+            <option>Booked by mistake</option>
+            <option>Event conflict</option>
+          </select></label
+        >
+        <div>
+          <button class="outline-btn" (click)="bookingModal.set(false)">Keep Booking</button
+          ><button class="danger-solid" (click)="confirmCancel()">Cancel Booking</button>
+        </div>
+      </article>
+    </div>
+  }
+  @if (toast()) {
+    <div class="toast">✓ {{ toast() }}</div>
+  }
+</div>
