@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace EventParkingReservationSystem.API.Models.Core;
 
-public sealed class Customer
+public class Customer
 {
     public int Id { get; set; }
 

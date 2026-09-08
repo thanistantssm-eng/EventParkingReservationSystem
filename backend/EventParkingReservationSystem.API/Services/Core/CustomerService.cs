@@ -1,456 +1,89 @@
-﻿using EventParkingReservationSystem.API.Data;
-using EventParkingReservationSystem.API.DTOs.Customers;
+﻿using EventParkingReservationSystem.API.DTOs.Customers;
+using EventParkingReservationSystem.API.Interfaces.Repositories.Core;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
-using EventParkingReservationSystem.API.Middleware;
 using EventParkingReservationSystem.API.Models.Core;
-using EventParkingReservationSystem.API.Models.Transactions;
-using Microsoft.EntityFrameworkCore;
 
 namespace EventParkingReservationSystem.API.Services.Core;
 
 public class CustomerService : ICustomerService
 {
-    private readonly AppDbContext _context;
+    private readonly ICustomerRepository _repository;
 
-    public CustomerService(
-        AppDbContext context)
+    public CustomerService(ICustomerRepository repository)
     {
-        _context = context;
+        _repository = repository;
     }
 
-
-    // ============================================
-    // CUSTOMER - GET OWN PROFILE
-    // ============================================
-
-    public async Task<CustomerProfileDto?>
-        GetMyProfileAsync(
-            int userId)
+    public async Task<List<CustomerDto>> GetAllAsync(
+        string? search = null)
     {
-        var user =
-            await _context.Users
-                .AsNoTracking()
-                .Include(x => x.Customer)
-                .FirstOrDefaultAsync(x =>
-                    x.Id == userId &&
-                    x.Role == UserRole.Customer);
+        var customers = await _repository.GetAllAsync(search);
 
-        if (user?.Customer is null)
-        {
-            return null;
-        }
-
-        return Map(
-            user,
-            user.Customer);
+        return customers.Select(Map).ToList();
     }
 
-
-    // ============================================
-    // CUSTOMER - UPDATE OWN PROFILE
-    // ============================================
-
-    public async Task<CustomerProfileDto?>
-        UpdateMyProfileAsync(
-            int userId,
-            UpdateCustomerProfileDto request)
+    public async Task<CustomerDto?> GetByIdAsync(int id)
     {
-        var user =
-            await _context.Users
-                .Include(x => x.Customer)
-                .FirstOrDefaultAsync(x =>
-                    x.Id == userId &&
-                    x.Role == UserRole.Customer);
+        var customer = await _repository.GetByIdAsync(id);
 
-        if (user?.Customer is null)
-        {
-            return null;
-        }
-
-
-        var name =
-            request.Name.Trim();
-
-        var username =
-            request.Username.Trim();
-
-        var email =
-            request.Email
-                .Trim()
-                .ToLowerInvariant();
-
-        var phone =
-            Clean(request.Phone);
-
-
-        // ============================================
-        // VALIDATION
-        // ============================================
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ValidationException(
-                "Name is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(username))
-        {
-            throw new ValidationException(
-                "Username is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            throw new ValidationException(
-                "Email is required.");
-        }
-
-
-        // ============================================
-        // CHECK DUPLICATE USERNAME
-        // ============================================
-
-        var normalizedUsername =
-            username.ToLower();
-
-        var usernameExists =
-            await _context.Users
-                .AnyAsync(x =>
-                    x.Id != userId &&
-                    x.Username.ToLower() ==
-                    normalizedUsername);
-
-        if (usernameExists)
-        {
-            throw new ConflictException(
-                "Username already exists.");
-        }
-
-
-        // ============================================
-        // CHECK DUPLICATE EMAIL
-        // ============================================
-
-        var emailExistsInUsers =
-            await _context.Users
-                .AnyAsync(x =>
-                    x.Id != userId &&
-                    x.Email.ToLower() ==
-                    email);
-
-        var emailExistsInCustomers =
-            await _context.Customers
-                .AnyAsync(x =>
-                    x.UserId != userId &&
-                    x.Email.ToLower() ==
-                    email);
-
-        if (emailExistsInUsers ||
-            emailExistsInCustomers)
-        {
-            throw new ConflictException(
-                "Email already exists.");
-        }
-
-
-        // ============================================
-        // UPDATE USER TABLE
-        // ============================================
-
-        user.Username =
-            username;
-
-        user.Email =
-            email;
-
-        user.UpdatedAt =
-            DateTime.UtcNow;
-
-
-        // ============================================
-        // UPDATE CUSTOMER TABLE
-        // ============================================
-
-        user.Customer.Name =
-            name;
-
-        user.Customer.Email =
-            email;
-
-        user.Customer.Phone =
-            phone;
-
-        user.Customer.UpdatedAt =
-            DateTime.UtcNow;
-
-
-        await _context.SaveChangesAsync();
-
-
-        return Map(
-            user,
-            user.Customer);
+        return customer is null
+            ? null
+            : Map(customer);
     }
 
-
-    // ============================================
-    // ADMIN - SEARCH / FILTER CUSTOMERS
-    // ============================================
-
-    public async Task<IReadOnlyList<AdminCustomerDto>>
-        GetAllForAdminAsync(
-            string? search,
-            bool? isActive)
+    public async Task<CustomerDto?> GetByUserIdAsync(int userId)
     {
-        var query =
-            BuildAdminCustomerQuery();
+        var customer = await _repository.GetByUserIdAsync(userId);
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term =
-                search.Trim();
-
-            query =
-                query.Where(x =>
-                    x.Name.Contains(term) ||
-                    x.Email.Contains(term) ||
-                    x.Username.Contains(term));
-        }
-
-        if (isActive.HasValue)
-        {
-            query =
-                query.Where(x =>
-                    x.IsActive ==
-                    isActive.Value);
-        }
-
-        return await query
-            .OrderBy(x => x.Name)
-            .ThenBy(x => x.Id)
-            .ToListAsync();
+        return customer is null
+            ? null
+            : Map(customer);
     }
 
-
-    // ============================================
-    // ADMIN - GET SINGLE CUSTOMER
-    // ============================================
-
-    public async Task<AdminCustomerDto?>
-        GetByIdForAdminAsync(
-            int customerId)
+    public async Task<CustomerDto?> UpdateByUserIdAsync(
+        int userId,
+        UpdateCustomerDto request)
     {
-        return await BuildAdminCustomerQuery()
-            .SingleOrDefaultAsync(x =>
-                x.Id == customerId);
-    }
-
-
-    // ============================================
-    // ADMIN - ACTIVATE / DEACTIVATE CUSTOMER
-    // ============================================
-
-    public async Task<AdminCustomerDto?>
-        SetStatusAsync(
-            int customerId,
-            bool isActive)
-    {
-        var customer =
-            await _context.Customers
-                .Include(x => x.User)
-                .SingleOrDefaultAsync(x =>
-                    x.Id == customerId);
+        var customer = await _repository.GetByUserIdAsync(userId);
 
         if (customer is null)
         {
             return null;
         }
 
-        // Make sure this record is actually
-        // a Customer user account.
-        if (customer.User.Role !=
-            UserRole.Customer)
+        var name = request.Name.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ValidationException(
-                "The selected account is not a customer.");
+            throw new ArgumentException("Customer name is required.");
         }
 
-        customer.User.IsActive =
-            isActive;
+        customer.Name = name;
+        customer.Phone = Clean(request.Phone);
+        customer.UpdatedAt = DateTime.UtcNow;
 
-        customer.User.UpdatedAt =
-            DateTime.UtcNow;
+        await _repository.SaveChangesAsync();
 
-        customer.UpdatedAt =
-            DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-
-        return await GetByIdForAdminAsync(
-            customerId);
+        return Map(customer);
     }
 
-
-    // ============================================
-    // ADMIN - CUSTOMER SUMMARY QUERY
-    // ============================================
-
-    private IQueryable<AdminCustomerDto>
-        BuildAdminCustomerQuery()
+    private static CustomerDto Map(Customer customer)
     {
-        return _context.Customers
-            .AsNoTracking()
-            .Select(customer =>
-                new AdminCustomerDto
-                {
-                    Id =
-                        customer.Id,
-
-                    UserId =
-                        customer.UserId,
-
-                    Name =
-                        customer.Name,
-
-                    Username =
-                        customer.User.Username,
-
-                    Email =
-                        customer.Email,
-
-                    Phone =
-                        customer.Phone,
-
-                    IsActive =
-                        customer.User.IsActive,
-
-
-                    // =================================
-                    // BOOKING SUMMARY
-                    // =================================
-
-                    TotalBookings =
-                        _context.Bookings
-                            .IgnoreQueryFilters()
-                            .Count(booking =>
-                                booking.CustomerId ==
-                                customer.Id),
-
-                    ConfirmedBookings =
-                        _context.Bookings
-                            .IgnoreQueryFilters()
-                            .Count(booking =>
-                                booking.CustomerId ==
-                                    customer.Id &&
-                                booking.Status ==
-                                    BookingStatus.Confirmed),
-
-                    PendingBookings =
-                        _context.Bookings
-                            .IgnoreQueryFilters()
-                            .Count(booking =>
-                                booking.CustomerId ==
-                                    customer.Id &&
-                                booking.Status ==
-                                    BookingStatus.PendingPayment),
-
-                    CancelledBookings =
-                        _context.Bookings
-                            .IgnoreQueryFilters()
-                            .Count(booking =>
-                                booking.CustomerId ==
-                                    customer.Id &&
-                                booking.Status ==
-                                    BookingStatus.Cancelled),
-
-
-                    // =================================
-                    // COMPLETED PAYMENT TOTAL
-                    // =================================
-
-                    TotalSpent =
-                        _context.Payments
-                            .IgnoreQueryFilters()
-                            .Where(payment =>
-                                payment.Booking.CustomerId ==
-                                    customer.Id &&
-                                payment.Status ==
-                                    PaymentStatus.Completed)
-                            .Sum(payment =>
-                                (decimal?)payment.Amount)
-                        ?? 0m,
-
-
-                    // =================================
-                    // LAST BOOKING
-                    // =================================
-
-                    LastBookingAtUtc =
-                        _context.Bookings
-                            .IgnoreQueryFilters()
-                            .Where(booking =>
-                                booking.CustomerId ==
-                                customer.Id)
-                            .Max(booking =>
-                                (DateTime?)
-                                booking.CreatedAtUtc),
-
-
-                    CreatedAt =
-                        customer.CreatedAt,
-
-                    UpdatedAt =
-                        customer.UpdatedAt
-                });
-    }
-
-
-    // ============================================
-    // CUSTOMER PROFILE MAP
-    // ============================================
-
-    private static CustomerProfileDto Map(
-        User user,
-        Customer customer)
-    {
-        return new CustomerProfileDto
+        return new CustomerDto
         {
-            Id =
-                customer.Id,
-
-            UserId =
-                user.Id,
-
-            Name =
-                customer.Name,
-
-            Username =
-                user.Username,
-
-            Email =
-                user.Email,
-
-            Phone =
-                customer.Phone,
-
-            IsActive =
-                user.IsActive,
-
-            CreatedAt =
-                customer.CreatedAt,
-
-            UpdatedAt =
-                customer.UpdatedAt
+            Id = customer.Id,
+            UserId = customer.UserId,
+            Username = customer.User.Username,
+            Name = customer.Name,
+            Email = customer.Email,
+            Phone = customer.Phone,
+            IsActive = customer.User.IsActive,
+            CreatedAt = customer.CreatedAt,
+            UpdatedAt = customer.UpdatedAt
         };
     }
 
-
-    // ============================================
-    // CLEAN OPTIONAL STRING
-    // ============================================
-
-    private static string? Clean(
-        string? value)
+    private static string? Clean(string? value)
     {
         return string.IsNullOrWhiteSpace(value)
             ? null
