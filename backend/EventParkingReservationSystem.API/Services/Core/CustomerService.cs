@@ -3,6 +3,7 @@ using EventParkingReservationSystem.API.DTOs.Customers;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
 using EventParkingReservationSystem.API.Middleware;
 using EventParkingReservationSystem.API.Models.Core;
+using EventParkingReservationSystem.API.Models.Transactions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventParkingReservationSystem.API.Services.Core;
@@ -19,7 +20,7 @@ public class CustomerService : ICustomerService
 
 
     // ============================================
-    // GET LOGGED-IN CUSTOMER PROFILE
+    // CUSTOMER - GET OWN PROFILE
     // ============================================
 
     public async Task<CustomerProfileDto?>
@@ -46,7 +47,7 @@ public class CustomerService : ICustomerService
 
 
     // ============================================
-    // UPDATE LOGGED-IN CUSTOMER PROFILE
+    // CUSTOMER - UPDATE OWN PROFILE
     // ============================================
 
     public async Task<CustomerProfileDto?>
@@ -60,7 +61,6 @@ public class CustomerService : ICustomerService
                 .FirstOrDefaultAsync(x =>
                     x.Id == userId &&
                     x.Role == UserRole.Customer);
-
 
         if (user?.Customer is null)
         {
@@ -93,11 +93,16 @@ public class CustomerService : ICustomerService
                 "Name is required.");
         }
 
-
         if (string.IsNullOrWhiteSpace(username))
         {
             throw new ValidationException(
                 "Username is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ValidationException(
+                "Email is required.");
         }
 
 
@@ -105,13 +110,15 @@ public class CustomerService : ICustomerService
         // CHECK DUPLICATE USERNAME
         // ============================================
 
+        var normalizedUsername =
+            username.ToLower();
+
         var usernameExists =
             await _context.Users
                 .AnyAsync(x =>
                     x.Id != userId &&
                     x.Username.ToLower() ==
-                    username.ToLower());
-
+                    normalizedUsername);
 
         if (usernameExists)
         {
@@ -131,14 +138,12 @@ public class CustomerService : ICustomerService
                     x.Email.ToLower() ==
                     email);
 
-
         var emailExistsInCustomers =
             await _context.Customers
                 .AnyAsync(x =>
                     x.UserId != userId &&
                     x.Email.ToLower() ==
                     email);
-
 
         if (emailExistsInUsers ||
             emailExistsInCustomers)
@@ -179,8 +184,7 @@ public class CustomerService : ICustomerService
             DateTime.UtcNow;
 
 
-        await _context
-            .SaveChangesAsync();
+        await _context.SaveChangesAsync();
 
 
         return Map(
@@ -190,7 +194,219 @@ public class CustomerService : ICustomerService
 
 
     // ============================================
-    // MAP
+    // ADMIN - SEARCH / FILTER CUSTOMERS
+    // ============================================
+
+    public async Task<IReadOnlyList<AdminCustomerDto>>
+        GetAllForAdminAsync(
+            string? search,
+            bool? isActive)
+    {
+        var query =
+            BuildAdminCustomerQuery();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term =
+                search.Trim();
+
+            query =
+                query.Where(x =>
+                    x.Name.Contains(term) ||
+                    x.Email.Contains(term) ||
+                    x.Username.Contains(term));
+        }
+
+        if (isActive.HasValue)
+        {
+            query =
+                query.Where(x =>
+                    x.IsActive ==
+                    isActive.Value);
+        }
+
+        return await query
+            .OrderBy(x => x.Name)
+            .ThenBy(x => x.Id)
+            .ToListAsync();
+    }
+
+
+    // ============================================
+    // ADMIN - GET SINGLE CUSTOMER
+    // ============================================
+
+    public async Task<AdminCustomerDto?>
+        GetByIdForAdminAsync(
+            int customerId)
+    {
+        return await BuildAdminCustomerQuery()
+            .SingleOrDefaultAsync(x =>
+                x.Id == customerId);
+    }
+
+
+    // ============================================
+    // ADMIN - ACTIVATE / DEACTIVATE CUSTOMER
+    // ============================================
+
+    public async Task<AdminCustomerDto?>
+        SetStatusAsync(
+            int customerId,
+            bool isActive)
+    {
+        var customer =
+            await _context.Customers
+                .Include(x => x.User)
+                .SingleOrDefaultAsync(x =>
+                    x.Id == customerId);
+
+        if (customer is null)
+        {
+            return null;
+        }
+
+        // Make sure this record is actually
+        // a Customer user account.
+        if (customer.User.Role !=
+            UserRole.Customer)
+        {
+            throw new ValidationException(
+                "The selected account is not a customer.");
+        }
+
+        customer.User.IsActive =
+            isActive;
+
+        customer.User.UpdatedAt =
+            DateTime.UtcNow;
+
+        customer.UpdatedAt =
+            DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return await GetByIdForAdminAsync(
+            customerId);
+    }
+
+
+    // ============================================
+    // ADMIN - CUSTOMER SUMMARY QUERY
+    // ============================================
+
+    private IQueryable<AdminCustomerDto>
+        BuildAdminCustomerQuery()
+    {
+        return _context.Customers
+            .AsNoTracking()
+            .Select(customer =>
+                new AdminCustomerDto
+                {
+                    Id =
+                        customer.Id,
+
+                    UserId =
+                        customer.UserId,
+
+                    Name =
+                        customer.Name,
+
+                    Username =
+                        customer.User.Username,
+
+                    Email =
+                        customer.Email,
+
+                    Phone =
+                        customer.Phone,
+
+                    IsActive =
+                        customer.User.IsActive,
+
+
+                    // =================================
+                    // BOOKING SUMMARY
+                    // =================================
+
+                    TotalBookings =
+                        _context.Bookings
+                            .IgnoreQueryFilters()
+                            .Count(booking =>
+                                booking.CustomerId ==
+                                customer.Id),
+
+                    ConfirmedBookings =
+                        _context.Bookings
+                            .IgnoreQueryFilters()
+                            .Count(booking =>
+                                booking.CustomerId ==
+                                    customer.Id &&
+                                booking.Status ==
+                                    BookingStatus.Confirmed),
+
+                    PendingBookings =
+                        _context.Bookings
+                            .IgnoreQueryFilters()
+                            .Count(booking =>
+                                booking.CustomerId ==
+                                    customer.Id &&
+                                booking.Status ==
+                                    BookingStatus.PendingPayment),
+
+                    CancelledBookings =
+                        _context.Bookings
+                            .IgnoreQueryFilters()
+                            .Count(booking =>
+                                booking.CustomerId ==
+                                    customer.Id &&
+                                booking.Status ==
+                                    BookingStatus.Cancelled),
+
+
+                    // =================================
+                    // COMPLETED PAYMENT TOTAL
+                    // =================================
+
+                    TotalSpent =
+                        _context.Payments
+                            .IgnoreQueryFilters()
+                            .Where(payment =>
+                                payment.Booking.CustomerId ==
+                                    customer.Id &&
+                                payment.Status ==
+                                    PaymentStatus.Completed)
+                            .Sum(payment =>
+                                (decimal?)payment.Amount)
+                        ?? 0m,
+
+
+                    // =================================
+                    // LAST BOOKING
+                    // =================================
+
+                    LastBookingAtUtc =
+                        _context.Bookings
+                            .IgnoreQueryFilters()
+                            .Where(booking =>
+                                booking.CustomerId ==
+                                customer.Id)
+                            .Max(booking =>
+                                (DateTime?)
+                                booking.CreatedAtUtc),
+
+
+                    CreatedAt =
+                        customer.CreatedAt,
+
+                    UpdatedAt =
+                        customer.UpdatedAt
+                });
+    }
+
+
+    // ============================================
+    // CUSTOMER PROFILE MAP
     // ============================================
 
     private static CustomerProfileDto Map(
@@ -228,6 +444,10 @@ public class CustomerService : ICustomerService
         };
     }
 
+
+    // ============================================
+    // CLEAN OPTIONAL STRING
+    // ============================================
 
     private static string? Clean(
         string? value)

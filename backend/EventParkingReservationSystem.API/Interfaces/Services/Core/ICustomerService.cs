@@ -10,4 +10,19 @@ public interface ICustomerService
     Task<CustomerProfileDto?> UpdateMyProfileAsync(
         int userId,
         UpdateCustomerProfileDto request);
+
+
+    Task<IReadOnlyList<AdminCustomerDto>>
+        GetAllForAdminAsync(
+            string? search,
+            bool? isActive);
+
+    Task<AdminCustomerDto?>
+        GetByIdForAdminAsync(
+            int customerId);
+
+    Task<AdminCustomerDto?>
+        SetStatusAsync(
+            int customerId,
+            bool isActive);
 }
