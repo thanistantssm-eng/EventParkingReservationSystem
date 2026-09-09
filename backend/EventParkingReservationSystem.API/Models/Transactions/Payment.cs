@@ -1,6 +1,6 @@
 namespace EventParkingReservationSystem.API.Models.Transactions;
 
-public enum PaymentStatus { PendingOtp, Completed, Failed }
+public enum PaymentStatus { PendingOtp, Completed, Failed, Refunded }
 
 public sealed class Payment
 {

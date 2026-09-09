@@ -4,6 +4,13 @@ namespace EventParkingReservationSystem.API.Interfaces.Transactions;
 
 public interface IOtpService
 {
-    Task<OtpIssuedDto> IssueAsync(int paymentId, CancellationToken ct);
-    Task<PaymentDto> VerifyAsync(OtpVerifyDto request, CancellationToken ct);
+    Task<OtpIssuedDto> IssueAsync(
+        int paymentId,
+        int customerId,
+        CancellationToken ct);
+
+    Task<PaymentDto> VerifyAsync(
+        OtpVerifyDto request,
+        int customerId,
+        CancellationToken ct);
 }

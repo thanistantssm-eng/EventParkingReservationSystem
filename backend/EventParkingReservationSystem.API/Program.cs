@@ -159,6 +159,10 @@ builder.Services.AddEventServices();
 // ============================================================
 
 builder.Services.AddScoped<
+    IBookingExpiryService,
+    BookingExpiryService>();
+
+builder.Services.AddScoped<
     IBookingService,
     BookingService>();
 

@@ -1,4 +1,4 @@
-﻿using EventParkingReservationSystem.API.Data;
+using EventParkingReservationSystem.API.Data;
 using EventParkingReservationSystem.API.Interfaces.Repositories.Core;
 using EventParkingReservationSystem.API.Models.Core;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +28,8 @@ public class UserRepository : IUserRepository
         int id)
     {
         return await _context.Users
+            .Include(x => x.Organizer)
+            .Include(x => x.Customer)
             .FirstOrDefaultAsync(x =>
                 x.Id == id);
     }
@@ -39,6 +41,8 @@ public class UserRepository : IUserRepository
             identifier.Trim().ToLower();
 
         return await _context.Users
+            .Include(x => x.Organizer)
+            .Include(x => x.Customer)
             .FirstOrDefaultAsync(x =>
                 x.Username.ToLower() == value ||
                 x.Email.ToLower() == value);

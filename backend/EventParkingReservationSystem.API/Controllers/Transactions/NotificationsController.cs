@@ -1,15 +1,38 @@
 using EventParkingReservationSystem.API.DTOs.Transactions;
+using EventParkingReservationSystem.API.Extensions;
 using EventParkingReservationSystem.API.Interfaces.Transactions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventParkingReservationSystem.API.Controllers.Transactions;
 
-[ApiController, Route("api/notifications")]
+[ApiController]
+[Route("api/notifications")]
+[Authorize]
 public sealed class NotificationsController(INotificationService service) : ControllerBase
 {
+    [HttpGet("me")]
+    [Authorize(Roles = "Customer")]
+    public async Task<ActionResult<IReadOnlyList<NotificationDto>>> MyNotifications(
+        CancellationToken ct) =>
+        Ok(await service.GetCustomerNotificationsAsync(
+            User.RequireCustomerId(),
+            ct));
+
     [HttpGet("customer/{customerId:int}")]
-    public async Task<ActionResult<IReadOnlyList<NotificationDto>>> CustomerNotifications(int customerId, CancellationToken ct) => Ok(await service.GetCustomerNotificationsAsync(customerId, ct));
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IReadOnlyList<NotificationDto>>> CustomerNotifications(
+        int customerId,
+        CancellationToken ct) =>
+        Ok(await service.GetCustomerNotificationsAsync(customerId, ct));
 
     [HttpPut("{id:int}/read")]
-    public async Task<ActionResult<NotificationDto>> MarkRead(int id, [FromQuery] int customerId, CancellationToken ct) => Ok(await service.MarkReadAsync(id, customerId, ct));
+    [Authorize(Roles = "Customer")]
+    public async Task<ActionResult<NotificationDto>> MarkRead(
+        int id,
+        CancellationToken ct) =>
+        Ok(await service.MarkReadAsync(
+            id,
+            User.RequireCustomerId(),
+            ct));
 }

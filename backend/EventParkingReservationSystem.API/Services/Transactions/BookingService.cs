@@ -9,12 +9,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventParkingReservationSystem.API.Services.Transactions;
 
-public sealed class BookingService(AppDbContext db) : IBookingService
+public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry) : IBookingService
 {
     public async Task<BookingDto> CreateAsync(
         CreateBookingDto request,
         CancellationToken ct)
     {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
         if (request.SeatIds.Count !=
             request.SeatIds.Distinct().Count())
         {
@@ -169,42 +171,56 @@ public sealed class BookingService(AppDbContext db) : IBookingService
 
     public async Task<BookingDto> GetAsync(
         int id,
-        CancellationToken ct) =>
-        Map(
+        CancellationToken ct)
+    {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
+        return Map(
             await Query()
                 .SingleOrDefaultAsync(
                     x => x.Id == id,
                     ct)
             ?? throw new NotFoundException(
                 "Booking not found."));
+    }
 
     public async Task<IReadOnlyList<BookingDto>>
         GetCustomerBookingsAsync(
             int customerId,
-            CancellationToken ct) =>
-        (await Query()
+            CancellationToken ct)
+    {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
+        return (await Query()
             .Where(x => x.CustomerId == customerId)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(ct))
         .Select(Map)
         .ToList();
+    }
 
     public async Task<IReadOnlyList<BookingDto>>
         GetEventBookingsAsync(
             int eventId,
-            CancellationToken ct) =>
-        (await Query()
+            CancellationToken ct)
+    {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
+        return (await Query()
             .Where(x => x.EventId == eventId)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(ct))
         .Select(Map)
         .ToList();
+    }
 
     public async Task<EventAvailabilityDto>
         GetAvailabilityAsync(
             int eventId,
             CancellationToken ct)
     {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
         var item = await db.Events
             .AsNoTracking()
             .SingleOrDefaultAsync(
@@ -328,6 +344,8 @@ public sealed class BookingService(AppDbContext db) : IBookingService
         ReserveParkingDto request,
         CancellationToken ct)
     {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
         await using var tx =
             await db.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
@@ -397,6 +415,8 @@ public sealed class BookingService(AppDbContext db) : IBookingService
         int customerId,
         CancellationToken ct)
     {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
         await using var tx =
             await db.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
@@ -449,6 +469,8 @@ public sealed class BookingService(AppDbContext db) : IBookingService
         int customerId,
         CancellationToken ct)
     {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
         await using var tx =
             await db.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
@@ -457,6 +479,7 @@ public sealed class BookingService(AppDbContext db) : IBookingService
         var booking = await db.Bookings
             .Include(x => x.Seats)
             .Include(x => x.Parking)
+            .Include(x => x.Payment)
             .SingleOrDefaultAsync(
                 x => x.Id == id,
                 ct)
@@ -468,6 +491,24 @@ public sealed class BookingService(AppDbContext db) : IBookingService
             throw new ApiException(
                 403,
                 "You can only cancel your own booking.");
+        }
+
+        if (booking.Status == BookingStatus.Cancelled)
+        {
+            throw new ConflictException(
+                "Booking is already cancelled or expired.");
+        }
+
+        if (booking.Payment?.Status == PaymentStatus.Completed)
+        {
+            throw new ConflictException(
+                "A completed booking cannot be cancelled directly. An administrator must refund the payment first.");
+        }
+
+        if (booking.Payment is not null &&
+            booking.Payment.Status == PaymentStatus.PendingOtp)
+        {
+            booking.Payment.Status = PaymentStatus.Failed;
         }
 
         db.BookingSeats.RemoveRange(

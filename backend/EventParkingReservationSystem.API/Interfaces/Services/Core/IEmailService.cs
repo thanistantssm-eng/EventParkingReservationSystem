@@ -1,4 +1,4 @@
-﻿namespace EventParkingReservationSystem.API.Interfaces.Services.Core;
+namespace EventParkingReservationSystem.API.Interfaces.Services.Core;
 
 public interface IEmailService
 {
@@ -6,4 +6,10 @@ public interface IEmailService
         string receiverEmail,
         string username,
         string otp);
+
+    Task SendPaymentOtpAsync(
+        string receiverEmail,
+        string customerName,
+        string otp,
+        string bookingNumber);
 }

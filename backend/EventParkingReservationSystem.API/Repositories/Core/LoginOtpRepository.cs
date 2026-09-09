@@ -1,4 +1,4 @@
-﻿using EventParkingReservationSystem.API.Data;
+using EventParkingReservationSystem.API.Data;
 using EventParkingReservationSystem.API.Interfaces.Repositories.Core;
 using EventParkingReservationSystem.API.Models.Core;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +23,9 @@ public class LoginOtpRepository
     {
         return await _context.LoginOtps
             .Include(x => x.User)
+                .ThenInclude(x => x.Organizer)
+            .Include(x => x.User)
+                .ThenInclude(x => x.Customer)
             .FirstOrDefaultAsync(x =>
                 x.ChallengeId == challengeId);
     }

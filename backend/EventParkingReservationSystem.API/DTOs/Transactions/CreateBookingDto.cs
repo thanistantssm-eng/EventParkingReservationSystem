@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace EventParkingReservationSystem.API.DTOs.Transactions;
 
 public sealed class CreateBookingDto
 {
-    [Range(1, int.MaxValue)]
+    // Server-controlled from the authenticated JWT customerId claim.
+    [JsonIgnore]
     public int CustomerId { get; set; }
 
     [Range(1, int.MaxValue)]

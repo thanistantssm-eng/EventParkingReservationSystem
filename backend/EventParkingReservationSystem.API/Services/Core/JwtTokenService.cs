@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using EventParkingReservationSystem.API.Interfaces.Services.Core;
@@ -59,6 +59,22 @@ public class JwtTokenService
                     user.Role.ToString()
                 )
             };
+
+        if (user.Organizer is not null)
+        {
+            claims.Add(
+                new Claim(
+                    "organizerId",
+                    user.Organizer.Id.ToString()));
+        }
+
+        if (user.Customer is not null)
+        {
+            claims.Add(
+                new Claim(
+                    "customerId",
+                    user.Customer.Id.ToString()));
+        }
 
         var securityKey =
             new SymmetricSecurityKey(
