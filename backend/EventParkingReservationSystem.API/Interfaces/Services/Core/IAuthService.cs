@@ -4,6 +4,11 @@ namespace EventParkingReservationSystem.API.Interfaces.Services.Core;
 
 public interface IAuthService
 {
+    Task<bool> IsAdminSetupRequiredAsync();
+
+    Task<RegisterResponseDto> SetupAdminAsync(
+        AdminSetupRequestDto request);
+
     Task<RegisterResponseDto> RegisterAsync(
         RegisterRequestDto request);
 
@@ -15,4 +20,10 @@ public interface IAuthService
 
     Task<LoginPendingResponseDto> ResendLoginOtpAsync(
         ResendLoginOtpRequestDto request);
+
+    Task<LoginPendingResponseDto> RequestPasswordResetAsync(
+        PasswordResetRequestDto request);
+
+    Task ResetPasswordAsync(
+        ResetPasswordRequestDto request);
 }

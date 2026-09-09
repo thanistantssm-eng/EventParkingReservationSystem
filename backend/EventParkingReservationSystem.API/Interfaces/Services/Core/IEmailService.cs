@@ -7,6 +7,11 @@ public interface IEmailService
         string username,
         string otp);
 
+    Task SendPasswordResetOtpAsync(
+        string receiverEmail,
+        string username,
+        string otp);
+
     Task SendPaymentOtpAsync(
         string receiverEmail,
         string customerName,

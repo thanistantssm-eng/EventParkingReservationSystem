@@ -234,6 +234,10 @@ public class AppDbContext : DbContext
                     .IsRequired()
                     .HasMaxLength(128);
 
+                entity.Property(x => x.Purpose)
+                    .HasConversion<string>()
+                    .HasMaxLength(32);
+
                 entity.HasOne(x => x.User)
                     .WithMany(x => x.LoginOtps)
                     .HasForeignKey(x => x.UserId)

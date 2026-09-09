@@ -22,6 +22,53 @@ public class AuthController
 
 
     // ====================================
+    // ONE-TIME ADMIN SETUP
+    // ====================================
+
+    [AllowAnonymous]
+    [HttpGet("admin-setup-status")]
+    public async Task<IActionResult> AdminSetupStatus()
+    {
+        return Ok(new
+        {
+            success = true,
+            data = new
+            {
+                setupRequired = await _authService
+                    .IsAdminSetupRequiredAsync()
+            }
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("admin-setup")]
+    public async Task<IActionResult> SetupAdmin(
+        AdminSetupRequestDto request)
+    {
+        try
+        {
+            var result = await _authService
+                .SetupAdminAsync(request);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Administrator account created. You can now sign in.",
+                data = result
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+    }
+
+
+    // ====================================
     // REGISTER
     // ====================================
 
@@ -189,6 +236,65 @@ public class AuthController
             InvalidOperationException ex)
         {
             return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+    }
+
+
+    // ====================================
+    // PASSWORD RESET
+    // ====================================
+
+    [AllowAnonymous]
+    [HttpPost("password-reset/request")]
+    public async Task<IActionResult> RequestPasswordReset(
+        PasswordResetRequestDto request)
+    {
+        try
+        {
+            var result = await _authService
+                .RequestPasswordResetAsync(request);
+
+            return Ok(new
+            {
+                success = true,
+                message = "If the account exists, a reset code has been sent.",
+                data = result
+            });
+        }
+        catch (Exception)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    success = false,
+                    message = "Unable to send the password reset code."
+                });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("password-reset/confirm")]
+    public async Task<IActionResult> ResetPassword(
+        ResetPasswordRequestDto request)
+    {
+        try
+        {
+            await _authService.ResetPasswordAsync(request);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Password reset successful. You can now sign in."
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new
             {
                 success = false,
                 message = ex.Message

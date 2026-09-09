@@ -10,6 +10,8 @@ public class LoginOtp
 
     public int UserId { get; set; }
 
+    public LoginOtpPurpose Purpose { get; set; } = LoginOtpPurpose.Login;
+
     [Required]
     [MaxLength(128)]
     public string OtpHash { get; set; } = string.Empty;

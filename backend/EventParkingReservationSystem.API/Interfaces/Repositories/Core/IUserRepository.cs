@@ -17,6 +17,9 @@ public interface IUserRepository
     Task<bool> EmailExistsAsync(
         string email);
 
+    Task<bool> AnyByRoleAsync(
+        UserRole role);
+
     Task AddAsync(User user);
 
     Task SaveChangesAsync();

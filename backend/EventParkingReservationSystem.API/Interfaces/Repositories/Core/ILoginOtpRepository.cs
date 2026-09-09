@@ -10,7 +10,8 @@ public interface ILoginOtpRepository
     Task AddAsync(LoginOtp loginOtp);
 
     Task InvalidateActiveOtpsAsync(
-        int userId);
+        int userId,
+        LoginOtpPurpose purpose);
 
     Task SaveChangesAsync();
 }

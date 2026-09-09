@@ -70,6 +70,13 @@ public class UserRepository : IUserRepository
                 x.Email.ToLower() == value);
     }
 
+    public async Task<bool> AnyByRoleAsync(
+        UserRole role)
+    {
+        return await _context.Users
+            .AnyAsync(x => x.Role == role);
+    }
+
     public async Task AddAsync(
         User user)
     {

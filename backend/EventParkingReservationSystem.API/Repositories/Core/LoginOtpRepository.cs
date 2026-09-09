@@ -38,12 +38,14 @@ public class LoginOtpRepository
     }
 
     public async Task InvalidateActiveOtpsAsync(
-        int userId)
+        int userId,
+        LoginOtpPurpose purpose)
     {
         var activeOtps =
             await _context.LoginOtps
                 .Where(x =>
                     x.UserId == userId &&
+                    x.Purpose == purpose &&
                     !x.IsUsed)
                 .ToListAsync();
 

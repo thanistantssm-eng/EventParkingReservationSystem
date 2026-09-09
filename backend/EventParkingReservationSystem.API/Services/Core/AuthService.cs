@@ -61,6 +61,64 @@ public class AuthService : IAuthService
 
 
     // ============================================
+    // ONE-TIME ADMIN SETUP
+    // ============================================
+
+    public async Task<bool> IsAdminSetupRequiredAsync()
+    {
+        return !await _userRepository
+            .AnyByRoleAsync(UserRole.Admin);
+    }
+
+    public async Task<RegisterResponseDto> SetupAdminAsync(
+        AdminSetupRequestDto request)
+    {
+        if (!await IsAdminSetupRequiredAsync())
+        {
+            throw new InvalidOperationException(
+                "Administrator setup has already been completed.");
+        }
+
+        var username = request.Username.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        if (await _userRepository.UsernameExistsAsync(username))
+        {
+            throw new InvalidOperationException("Username already exists.");
+        }
+
+        if (await _userRepository.EmailExistsAsync(email))
+        {
+            throw new InvalidOperationException("Email already exists.");
+        }
+
+        var user = new User
+        {
+            Username = username,
+            Email = email,
+            Role = UserRole.Admin,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        user.PasswordHash = _passwordHasher.HashPassword(
+            user,
+            request.Password);
+
+        await _userRepository.AddAsync(user);
+        await _userRepository.SaveChangesAsync();
+
+        return new RegisterResponseDto
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Role = user.Role.ToString()
+        };
+    }
+
+
+    // ============================================
     // REGISTER
     // ============================================
 
@@ -295,11 +353,14 @@ public class AuthService : IAuthService
 
         await _loginOtpRepository
             .InvalidateActiveOtpsAsync(
-                user.Id);
+                user.Id,
+                LoginOtpPurpose.Login);
 
 
         return await
-            CreateAndSendOtpAsync(user);
+            CreateAndSendOtpAsync(
+                user,
+                LoginOtpPurpose.Login);
     }
 
 
@@ -318,6 +379,12 @@ public class AuthService : IAuthService
 
 
         if (loginOtp == null)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid OTP session.");
+        }
+
+        if (loginOtp.Purpose != LoginOtpPurpose.Login)
         {
             throw new UnauthorizedAccessException(
                 "Invalid OTP session.");
@@ -467,6 +534,12 @@ public class AuthService : IAuthService
                 "Invalid OTP session.");
         }
 
+        if (oldOtp.Purpose != LoginOtpPurpose.Login)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid OTP session.");
+        }
+
 
         if (oldOtp.IsUsed)
         {
@@ -497,12 +570,110 @@ public class AuthService : IAuthService
 
         await _loginOtpRepository
             .InvalidateActiveOtpsAsync(
-                oldOtp.UserId);
+                oldOtp.UserId,
+                LoginOtpPurpose.Login);
 
 
         return await
             CreateAndSendOtpAsync(
-                oldOtp.User);
+                oldOtp.User,
+                LoginOtpPurpose.Login);
+    }
+
+
+    // ============================================
+    // PASSWORD RESET
+    // ============================================
+
+    public async Task<LoginPendingResponseDto> RequestPasswordResetAsync(
+        PasswordResetRequestDto request)
+    {
+        var user = await _userRepository
+            .GetByIdentifierAsync(request.Identifier);
+
+        // Do not reveal whether an account exists.
+        if (user == null || !user.IsActive)
+        {
+            return new LoginPendingResponseDto
+            {
+                RequiresOtp = true,
+                ChallengeId = Guid.NewGuid(),
+                MaskedEmail = "your registered email",
+                ExpiresAt = DateTime.UtcNow.AddMinutes(5)
+            };
+        }
+
+        await _loginOtpRepository
+            .InvalidateActiveOtpsAsync(
+                user.Id,
+                LoginOtpPurpose.PasswordReset);
+
+        return await CreateAndSendOtpAsync(
+            user,
+            LoginOtpPurpose.PasswordReset);
+    }
+
+    public async Task ResetPasswordAsync(
+        ResetPasswordRequestDto request)
+    {
+        var resetOtp = await _loginOtpRepository
+            .GetByChallengeIdAsync(request.ChallengeId);
+
+        if (resetOtp == null ||
+            resetOtp.Purpose != LoginOtpPurpose.PasswordReset ||
+            resetOtp.IsUsed)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid or expired password reset session.");
+        }
+
+        if (resetOtp.ExpiresAt < DateTime.UtcNow)
+        {
+            resetOtp.IsUsed = true;
+            resetOtp.UsedAt = DateTime.UtcNow;
+            await _loginOtpRepository.SaveChangesAsync();
+
+            throw new UnauthorizedAccessException(
+                "Password reset code has expired.");
+        }
+
+        if (resetOtp.FailedAttempts >= 5)
+        {
+            throw new UnauthorizedAccessException(
+                "Maximum password reset attempts exceeded.");
+        }
+
+        if (!VerifyOtp(request.Otp, resetOtp.OtpHash))
+        {
+            resetOtp.FailedAttempts++;
+
+            if (resetOtp.FailedAttempts >= 5)
+            {
+                resetOtp.IsUsed = true;
+                resetOtp.UsedAt = DateTime.UtcNow;
+            }
+
+            await _loginOtpRepository.SaveChangesAsync();
+
+            throw new UnauthorizedAccessException(
+                "Invalid password reset code.");
+        }
+
+        var user = resetOtp.User;
+
+        if (!user.IsActive)
+        {
+            throw new UnauthorizedAccessException("Account is inactive.");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(
+            user,
+            request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        resetOtp.IsUsed = true;
+        resetOtp.UsedAt = DateTime.UtcNow;
+
+        await _loginOtpRepository.SaveChangesAsync();
     }
 
 
@@ -512,7 +683,8 @@ public class AuthService : IAuthService
 
     private async Task<LoginPendingResponseDto>
         CreateAndSendOtpAsync(
-            User user)
+            User user,
+            LoginOtpPurpose purpose)
     {
         var otp =
             RandomNumberGenerator
@@ -540,6 +712,9 @@ public class AuthService : IAuthService
                 UserId =
                     user.Id,
 
+                Purpose =
+                    purpose,
+
                 OtpHash =
                     HashOtp(otp),
 
@@ -565,11 +740,20 @@ public class AuthService : IAuthService
 
         try
         {
-            await _emailService
-                .SendLoginOtpAsync(
+            if (purpose == LoginOtpPurpose.PasswordReset)
+            {
+                await _emailService.SendPasswordResetOtpAsync(
                     user.Email,
                     user.Username,
                     otp);
+            }
+            else
+            {
+                await _emailService.SendLoginOtpAsync(
+                    user.Email,
+                    user.Username,
+                    otp);
+            }
         }
         catch
         {

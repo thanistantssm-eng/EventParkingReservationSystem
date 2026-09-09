@@ -26,6 +26,18 @@ public class EmailService : IEmailService
             "Your login verification code is:",
             "If you did not try to login, you can ignore this email.");
 
+    public Task SendPasswordResetOtpAsync(
+        string receiverEmail,
+        string username,
+        string otp) =>
+        SendOtpEmailAsync(
+            receiverEmail,
+            username,
+            otp,
+            "Password Reset OTP",
+            "Your password reset verification code is:",
+            "If you did not request a password reset, you can ignore this email.");
+
     public Task SendPaymentOtpAsync(
         string receiverEmail,
         string customerName,
