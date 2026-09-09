@@ -12,4 +12,10 @@ public interface IEmailService
         string customerName,
         string otp,
         string bookingNumber);
+
+    Task SendBookingExpiredAsync(
+        string receiverEmail,
+        string customerName,
+        string bookingNumber,
+        int holdMinutes);
 }

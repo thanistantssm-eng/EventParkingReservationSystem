@@ -36,16 +36,84 @@ public class EmailService : IEmailService
             customerName,
             otp,
             "Payment Verification OTP",
-            $"Your payment verification code for booking {HtmlEncoder.Default.Encode(bookingNumber)} is:",
+            $"Your payment verification code for booking {bookingNumber} is:",
             "If you did not start this payment, please do not share this OTP.");
 
-    private async Task SendOtpEmailAsync(
+    public Task SendBookingExpiredAsync(
+        string receiverEmail,
+        string customerName,
+        string bookingNumber,
+        int holdMinutes)
+    {
+        var safeName = HtmlEncoder.Default.Encode(customerName);
+        var safeBookingNumber = HtmlEncoder.Default.Encode(bookingNumber);
+
+        var htmlBody = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:30px;">
+                <div style="max-width:560px;margin:auto;background:white;padding:30px;border-radius:10px;">
+                    <h2>Event Parking Reservation System</h2>
+                    <p>Hello {safeName},</p>
+                    <p>
+                        Your booking <strong>{safeBookingNumber}</strong> was automatically
+                        cancelled because payment was not completed within
+                        <strong>{holdMinutes} minutes</strong>.
+                    </p>
+                    <p>Your reserved seats and parking have been released and are available for booking again.</p>
+                    <p>If you still want to attend the event, please create a new booking.</p>
+                </div>
+            </body>
+            </html>
+            """;
+
+        return SendHtmlEmailAsync(
+            receiverEmail,
+            $"Booking expired - {bookingNumber}",
+            htmlBody);
+    }
+
+    private Task SendOtpEmailAsync(
         string receiverEmail,
         string displayName,
         string otp,
         string subject,
         string intro,
         string footer)
+    {
+        var safeName = HtmlEncoder.Default.Encode(displayName);
+        var safeIntro = HtmlEncoder.Default.Encode(intro);
+        var safeOtp = HtmlEncoder.Default.Encode(otp);
+        var safeFooter = HtmlEncoder.Default.Encode(footer);
+
+        var htmlBody = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:30px;">
+                <div style="max-width:500px;margin:auto;background:white;padding:30px;border-radius:10px;">
+                    <h2>Event Parking Reservation System</h2>
+                    <p>Hello {safeName},</p>
+                    <p>{safeIntro}</p>
+                    <div style="font-size:32px;font-weight:bold;letter-spacing:8px;margin:25px 0;">
+                        {safeOtp}
+                    </div>
+                    <p>This OTP will expire in <strong>5 minutes</strong>.</p>
+                    <p>{safeFooter}</p>
+                </div>
+            </body>
+            </html>
+            """;
+
+        return SendHtmlEmailAsync(
+            receiverEmail,
+            subject,
+            htmlBody);
+    }
+
+    private async Task SendHtmlEmailAsync(
+        string receiverEmail,
+        string subject,
+        string htmlBody)
     {
         var smtpHost =
             _configuration["Email:SmtpHost"]
@@ -62,13 +130,6 @@ public class EmailService : IEmailService
             _configuration["Email:Password"]
             ?? throw new InvalidOperationException("SMTP password is not configured.");
 
-        var fromAddress =
-            _configuration["Email:FromAddress"] ?? smtpUsername;
-
-        var fromName =
-            _configuration["Email:FromName"]
-            ?? "Event Parking Reservation System";
-
         if (string.IsNullOrWhiteSpace(smtpUsername) ||
             string.IsNullOrWhiteSpace(smtpPassword))
         {
@@ -76,9 +137,16 @@ public class EmailService : IEmailService
                 "Email credentials are not configured.");
         }
 
-        var safeName = HtmlEncoder.Default.Encode(displayName);
-        var safeIntro = intro;
-        var safeFooter = HtmlEncoder.Default.Encode(footer);
+        var configuredFromAddress =
+            _configuration["Email:FromAddress"];
+
+        var fromAddress = string.IsNullOrWhiteSpace(configuredFromAddress)
+            ? smtpUsername
+            : configuredFromAddress;
+
+        var fromName =
+            _configuration["Email:FromName"]
+            ?? "Event Parking Reservation System";
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(fromName, fromAddress));
@@ -87,23 +155,7 @@ public class EmailService : IEmailService
 
         var bodyBuilder = new BodyBuilder
         {
-            HtmlBody = $"""
-                <!DOCTYPE html>
-                <html>
-                <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:30px;">
-                    <div style="max-width:500px;margin:auto;background:white;padding:30px;border-radius:10px;">
-                        <h2>Event Parking Reservation System</h2>
-                        <p>Hello {safeName},</p>
-                        <p>{safeIntro}</p>
-                        <div style="font-size:32px;font-weight:bold;letter-spacing:8px;margin:25px 0;">
-                            {otp}
-                        </div>
-                        <p>This OTP will expire in <strong>5 minutes</strong>.</p>
-                        <p>{safeFooter}</p>
-                    </div>
-                </body>
-                </html>
-                """
+            HtmlBody = htmlBody
         };
 
         message.Body = bodyBuilder.ToMessageBody();

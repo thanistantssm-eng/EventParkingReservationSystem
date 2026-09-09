@@ -162,6 +162,10 @@ builder.Services.AddScoped<
     IBookingExpiryService,
     BookingExpiryService>();
 
+// Runs independently of API requests and releases stale booking inventory.
+builder.Services.AddHostedService<
+    BookingExpiryBackgroundService>();
+
 builder.Services.AddScoped<
     IBookingService,
     BookingService>();
