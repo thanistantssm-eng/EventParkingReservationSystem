@@ -6,6 +6,7 @@ public interface IApprovalService
 {
     Task<EventApprovalDto> SubmitAsync(int eventId, SubmitApprovalDto dto, int actorUserId, int? actorOrganizerId, string actorRole, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EventApprovalDto>> GetPendingAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<EventApprovalDto>> GetForOrganizerAsync(int organizerId, CancellationToken cancellationToken = default);
     Task<EventApprovalDto> ApproveAsync(
         int approvalId,
         ReviewApprovalDto dto,

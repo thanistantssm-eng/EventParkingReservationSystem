@@ -44,7 +44,7 @@ public class PropertiesController : ControllerBase
 
     // POST: api/properties
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<PropertyDto>> Create(
         [FromBody] CreatePropertyDto dto)
     {
@@ -63,7 +63,7 @@ public class PropertiesController : ControllerBase
 
     // PUT: api/properties/5
     [HttpPut("{id:int}")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<PropertyDto>> Update(
         int id,
         [FromBody] UpdatePropertyDto dto)
@@ -88,7 +88,7 @@ public class PropertiesController : ControllerBase
 
     // DELETE: api/properties/5
     [HttpDelete("{id:int}")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _propertyService.DeleteAsync(id);

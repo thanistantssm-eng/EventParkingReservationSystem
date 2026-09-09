@@ -193,6 +193,19 @@ public sealed class PaymentService(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<PaymentDto>> GetAllAsync(
+        CancellationToken ct)
+    {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
+        return (await db.Payments
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(ct))
+            .Select(Map)
+            .ToList();
+    }
+
     public async Task<PaymentReceiptDto> GetReceiptAsync(
         int paymentId,
         CancellationToken ct)

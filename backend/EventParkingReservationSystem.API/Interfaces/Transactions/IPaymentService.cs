@@ -8,6 +8,7 @@ public interface IPaymentService
     Task<PaymentDto> StartAsync(int bookingId, PaymentRequestDto request, CancellationToken ct);
     Task<PaymentDto> CompleteAsync(int paymentId, CancellationToken ct);
     Task<PaymentDto> RefundAsync(int paymentId, CancellationToken ct);
+    Task<IReadOnlyList<PaymentDto>> GetAllAsync(CancellationToken ct);
     Task<IReadOnlyList<PaymentDto>> GetCustomerHistoryAsync(int customerId, CancellationToken ct);
     Task<PaymentReceiptDto> GetReceiptAsync(int paymentId, CancellationToken ct);
 }

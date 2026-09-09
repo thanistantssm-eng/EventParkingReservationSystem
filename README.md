@@ -1,44 +1,43 @@
-# Event & Parking Reservation System - Project Skeleton
+# Event Parking Reservation System API
 
-This repository contains the BRD-aligned project skeleton for an ASP.NET Core Web API backend and a separately located Angular frontend.
+ASP.NET Core 8 Web API for the Eventora customer, organizer and administrator applications.
 
-**No frontend application or business feature has been implemented yet.** The root-level `frontend/` directory contains only an empty Angular-ready folder structure for future Admin, Organizer and Customer work.
+## Architecture
 
-## Structure
+`Controllers → Services → Repositories → EF Core → SQL Server`
 
-- `solution/EventParkingReservationSystem.sln` — Visual Studio solution
-- `backend/EventParkingReservationSystem.API/` — ASP.NET Core Web API
-- `frontend/event-parking-reservation-ui/` — empty Angular-ready structure (no Angular workspace yet)
-- `database/` — SQL scripts, seed data and ER diagram work
-- `docs/` — BRD, API documentation and system-flow references
+The API implements authentication, profiles, properties and venues, categories, organizer-owned events, approval/publication lifecycle, ticket types, seats, event parking, bookings, payments, OTP, QR codes, notifications, dashboards and reports.
 
-See `docs/PROJECT-STRUCTURE.md` for the complete BRD-aligned folder map and module ownership.
+## Run locally
 
-## Backend layers
+From the repository root:
 
-`Controllers -> Services -> Repositories -> Data -> SQL Server`
+```bash
+dotnet restore solution/EventParkingReservationSystem.sln
+dotnet ef database update --project backend/EventParkingReservationSystem.API
+dotnet run --project backend/EventParkingReservationSystem.API --urls http://localhost:5118
+```
 
-Supporting folders include DTOs, Interfaces, Middleware, Helpers, Validators, Mapping, Exceptions and Extensions.
+Health check: `http://localhost:5118/api/health`
 
-## Planned system roles
+The default development database uses SQL Server LocalDB. Override the connection string for another SQL Server environment.
 
-- Admin
-- Organizer
-- Customer
+## Email OTP
 
-## Planned backend modules
+Configure `Email:Host`, `Email:Port`, `Email:Username`, `Email:Password`, `Email:FromEmail`, and `Email:FromName` through .NET user secrets or environment variables. Do not commit SMTP credentials.
 
-Authentication, customers, organizers, properties/venues, categories, events, event approvals, seats, ticket types, parking, bookings, payments, OTP verification, QR codes, notifications, reports and dashboards.
+## Authorization model
 
-## Start
+- Public users can read only published event details and event-scoped availability.
+- Customers can access only their own bookings, payments, receipts, QR records and profile.
+- Organizers can manage and report on events owned by their organizer account.
+- Administrators can review/publish events and access platform-wide operational records.
 
-Open `solution/EventParkingReservationSystem.sln` in Visual Studio, restore NuGet packages, then run `EventParkingReservationSystem.API`.
+## Verify
 
-Swagger opens in Development mode. Health endpoints:
+```bash
+dotnet build solution/EventParkingReservationSystem.sln
+dotnet test solution/EventParkingReservationSystem.sln
+```
 
-- `/api/health`
-- `/api/Health`
-
-## Git workflow
-
-Keep stable work in `main`, integration work in `develop`, and use feature branches for team work. Do not push unfinished feature work directly to `main`.
+The connected Angular frontend is maintained separately at `https://github.com/thanistantssm-eng/event-frontend`.

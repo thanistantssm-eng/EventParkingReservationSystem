@@ -321,7 +321,7 @@ public class AppDbContext : DbContext
                     .IsRequired();
 
                 entity.HasOne(x => x.User)
-                    .WithMany()
+                    .WithMany(x => x.Notifications)
                     .HasForeignKey(x => x.UserId)
                     .OnDelete(
                         DeleteBehavior.Cascade);

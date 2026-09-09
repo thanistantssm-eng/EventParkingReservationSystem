@@ -200,6 +200,19 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
     }
 
     public async Task<IReadOnlyList<BookingDto>>
+        GetAllAsync(
+            CancellationToken ct)
+    {
+        await expiry.ExpireStalePendingBookingsAsync(ct);
+
+        return (await Query()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(ct))
+        .Select(Map)
+        .ToList();
+    }
+
+    public async Task<IReadOnlyList<BookingDto>>
         GetEventBookingsAsync(
             int eventId,
             CancellationToken ct)
@@ -228,6 +241,12 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
                 ct)
             ?? throw new NotFoundException(
                 "Event not found.");
+
+        if (item.Status != EventStatus.Published)
+        {
+            throw new NotFoundException(
+                "Published event availability was not found.");
+        }
 
         var takenSeats =
             (await db.BookingSeats

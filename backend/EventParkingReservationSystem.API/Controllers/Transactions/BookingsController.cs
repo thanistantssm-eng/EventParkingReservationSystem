@@ -57,16 +57,27 @@ public sealed class BookingsController(
     [HttpGet]
     [Authorize(Roles = "Admin,Organizer")]
     public async Task<ActionResult<IReadOnlyList<BookingDto>>> EventBookings(
-        [FromQuery] int eventId,
+        [FromQuery] int? eventId,
         CancellationToken ct)
     {
+        if (User.RequireRole() == "Admin" && !eventId.HasValue)
+        {
+            return Ok(await service.GetAllAsync(ct));
+        }
+
+        if (!eventId.HasValue)
+        {
+            throw new ValidationException(
+                "eventId is required for organizer booking queries.");
+        }
+
         if (User.RequireRole() == "Organizer")
         {
             var organizerId = User.RequireOrganizerId();
             var ownsEvent = await db.Events
                 .AsNoTracking()
                 .AnyAsync(
-                    x => x.Id == eventId && x.OrganizerId == organizerId,
+                    x => x.Id == eventId.Value && x.OrganizerId == organizerId,
                     ct);
 
             if (!ownsEvent)
@@ -77,7 +88,7 @@ public sealed class BookingsController(
             }
         }
 
-        return Ok(await service.GetEventBookingsAsync(eventId, ct));
+        return Ok(await service.GetEventBookingsAsync(eventId.Value, ct));
     }
 
     [AllowAnonymous]

@@ -74,6 +74,19 @@ public class ApprovalService(
         return list.Select(Map).ToList();
     }
 
+    public async Task<IReadOnlyList<EventApprovalDto>> GetForOrganizerAsync(
+        int organizerId,
+        CancellationToken cancellationToken = default)
+    {
+        var list = await _approvals.Query()
+            .Include(x => x.Event)
+            .Where(x => x.Event!.OrganizerId == organizerId)
+            .OrderByDescending(x => x.RequestedAt)
+            .ToListAsync(cancellationToken);
+
+        return list.Select(Map).ToList();
+    }
+
     public Task<EventApprovalDto> ApproveAsync(
         int approvalId,
         ReviewApprovalDto dto,

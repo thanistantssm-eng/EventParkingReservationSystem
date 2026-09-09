@@ -41,6 +41,15 @@ public class ApprovalsController(IApprovalService service) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<EventApprovalDto>>> GetPending(CancellationToken cancellationToken) =>
         Ok(await _service.GetPendingAsync(cancellationToken));
 
+    [Authorize(Roles = "Organizer")]
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(IReadOnlyList<EventApprovalDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyList<EventApprovalDto>>> GetMine(CancellationToken cancellationToken) =>
+        Ok(await _service.GetForOrganizerAsync(
+            OrganizerId() ?? throw new UnauthorizedAccessException("Organizer id claim is missing."),
+            cancellationToken));
+
     [Authorize(Roles = "Admin")]
     [HttpPut("{approvalId:int}/approve")]
     [ProducesResponseType(typeof(EventApprovalDto), StatusCodes.Status200OK)]

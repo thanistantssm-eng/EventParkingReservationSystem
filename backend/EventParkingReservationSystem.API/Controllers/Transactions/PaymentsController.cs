@@ -51,6 +51,12 @@ public sealed class PaymentsController(
             User.RequireCustomerId(),
             ct));
 
+    [HttpGet("payments")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IReadOnlyList<PaymentDto>>> All(
+        CancellationToken ct) =>
+        Ok(await service.GetAllAsync(ct));
+
     [HttpGet("payments/customer/{customerId:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<IReadOnlyList<PaymentDto>>> CustomerHistory(
