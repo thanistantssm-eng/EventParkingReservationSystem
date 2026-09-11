@@ -13,12 +13,16 @@ public class AuthController
     private readonly IAuthService
         _authService;
 
+     private readonly ILogger<AuthController>
+    _logger;   
+
     public AuthController(
-        IAuthService authService)
-    {
-        _authService =
-            authService;
-    }
+    IAuthService authService,
+    ILogger<AuthController> logger)
+{
+    _authService = authService;
+    _logger = logger;
+}
 
 
     // ====================================
@@ -142,19 +146,23 @@ public class AuthController
                 message = ex.Message
             });
         }
-        catch (Exception)
-        {
-            return StatusCode(
-                StatusCodes
-                    .Status500InternalServerError,
-                new
-                {
-                    success = false,
+        catch (Exception ex)
+{
+    _logger.LogError(
+        ex,
+        "LOGIN OTP SEND FAILED for identifier {Identifier}. ExceptionType={ExceptionType}. Message={ExceptionMessage}",
+        request.Identifier,
+        ex.GetType().FullName,
+        ex.Message);
 
-                    message =
-                        "Unable to send login OTP."
-                });
-        }
+    return StatusCode(
+        StatusCodes.Status500InternalServerError,
+        new
+        {
+            success = false,
+            message = "Unable to send login OTP."
+        });
+}
     }
 
 
