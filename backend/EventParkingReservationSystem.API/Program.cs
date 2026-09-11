@@ -54,11 +54,25 @@ builder.Services.AddEndpointsApiExplorer();
 // DATABASE
 // ============================================================
 
+var connectionString =
+    builder.Configuration.GetConnectionString(
+        "DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'DefaultConnection' is missing.");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString(
-            "DefaultConnection"));
+        connectionString,
+        sqlServerOptions =>
+            sqlServerOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null));
 });
 
 
@@ -350,6 +364,30 @@ builder.Services.AddSwaggerGen(options =>
 
 var app =
     builder.Build();
+
+
+// ============================================================
+// DATABASE READINESS
+// ============================================================
+
+if (builder.Configuration.GetValue(
+        "Database:ApplyMigrationsOnStartup",
+        true))
+{
+    await using var scope =
+        app.Services.CreateAsyncScope();
+
+    var db =
+        scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    app.Logger.LogInformation(
+        "Applying pending database migrations.");
+
+    await db.Database.MigrateAsync();
+
+    app.Logger.LogInformation(
+        "Database migrations are up to date.");
+}
 
 
 // ============================================================

@@ -22,6 +22,18 @@ Health check: `http://localhost:5118/api/health`
 
 The default development database uses SQL Server LocalDB. Override the connection string for another SQL Server environment.
 
+## Production database configuration
+
+Configure the hosted SQL Server connection string as an environment variable or hosting setting. Do not replace the LocalDB development value in `appsettings.json` and do not commit production credentials.
+
+```text
+ConnectionStrings__DefaultConnection=Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True;
+Database__ApplyMigrationsOnStartup=true
+ASPNETCORE_ENVIRONMENT=Production
+```
+
+On startup, the API validates that `DefaultConnection` is present, retries transient SQL Server connection failures, and applies pending EF Core migrations. `/api/health` returns HTTP 200 only when both the API and database are reachable; otherwise it returns HTTP 503.
+
 ## Email OTP
 
 Configure `Email:Host`, `Email:Port`, `Email:Username`, `Email:Password`, `Email:FromEmail`, and `Email:FromName` through .NET user secrets or environment variables. Do not commit SMTP credentials.
