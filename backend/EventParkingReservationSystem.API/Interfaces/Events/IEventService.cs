@@ -12,4 +12,5 @@ public interface IEventService
     Task DeleteAsync(int id, int actorUserId, int? actorOrganizerId, string actorRole, CancellationToken cancellationToken = default);
     Task<EventDto> PublishAsync(int id, int actorUserId, string actorRole, CancellationToken cancellationToken = default);
     Task<EventDto> RegenerateQrAsync(int id, int actorUserId, int? actorOrganizerId, string actorRole, CancellationToken cancellationToken = default);
+    Task<EventDto> CancelAsync(int id, CancelEventDto dto, int actorUserId, int? actorOrganizerId, string actorRole, CancellationToken cancellationToken = default);
 }

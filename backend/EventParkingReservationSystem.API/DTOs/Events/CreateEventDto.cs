@@ -17,8 +17,16 @@ public class CreateEventDto
     // Organizer users normally receive it from the organizerId JWT claim.
     public int? OrganizerId { get; set; }
 
-    [Range(1, int.MaxValue)]
-    public int VenueId { get; set; }
+    public int? VenueId { get; set; }
+
+    [Required, RegularExpression("^(OurProperty|ExternalProperty)$", ErrorMessage = "VenueMode must be OurProperty or ExternalProperty.")]
+    public string VenueMode { get; set; } = "OurProperty";
+
+    [MaxLength(200)]
+    public string? ExternalVenueName { get; set; }
+
+    [MaxLength(500)]
+    public string? ExternalVenueAddress { get; set; }
 
     [Range(1, int.MaxValue)]
     public int EventCategoryId { get; set; }

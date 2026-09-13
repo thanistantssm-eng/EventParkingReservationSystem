@@ -6,4 +6,5 @@ public interface INotificationService
 {
     Task<IReadOnlyList<NotificationDto>> GetCustomerNotificationsAsync(int customerId, CancellationToken ct);
     Task<NotificationDto> MarkReadAsync(int id, int customerId, CancellationToken ct);
+    Task MarkAllReadAsync(int customerId, CancellationToken ct);
 }

@@ -34,6 +34,17 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
             .HasMaxLength(30)
             .IsRequired();
 
+        builder.Property(e => e.VenueMode)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.Property(e => e.ExternalVenueName)
+            .HasMaxLength(200);
+
+        builder.Property(e => e.ExternalVenueAddress)
+            .HasMaxLength(500);
+
         builder.Property(e => e.PosterUrl)
             .HasMaxLength(1000);
 

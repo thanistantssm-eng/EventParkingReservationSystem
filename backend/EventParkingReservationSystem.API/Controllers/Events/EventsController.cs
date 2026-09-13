@@ -181,6 +181,25 @@ public class EventsController(IEventService service) : ControllerBase
             Role(),
             cancellationToken));
 
+    [Authorize(Roles = "Admin,Organizer")]
+    [HttpPost("{id:int}/cancel")]
+    [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EventDto>> Cancel(
+        int id,
+        CancelEventDto dto,
+        CancellationToken cancellationToken) =>
+        Ok(await _service.CancelAsync(
+            id,
+            dto,
+            UserId(),
+            OrganizerId(),
+            Role(),
+            cancellationToken));
+
     private int? TryUserId()
     {
         var value =

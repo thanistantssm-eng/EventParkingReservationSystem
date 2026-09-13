@@ -153,6 +153,14 @@ public sealed class BookingsController(
         return NoContent();
     }
 
+    [HttpPost("{id:int}/cancel")]
+    [Authorize(Roles = "Customer")]
+    public async Task<IActionResult> CancelWithActionRoute(int id, CancellationToken ct)
+    {
+        await service.CancelAsync(id, User.RequireCustomerId(), ct);
+        return NoContent();
+    }
+
     private async Task EnsureBookingAccessAsync(
         int bookingId,
         CancellationToken ct)

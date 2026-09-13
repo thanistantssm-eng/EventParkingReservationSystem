@@ -19,6 +19,12 @@ public enum EventStatus
     Cancelled = 6
 }
 
+public enum EventVenueMode
+{
+    OurProperty = 1,
+    ExternalProperty = 2
+}
+
 public class Event
 {
     public int Id { get; set; }
@@ -36,7 +42,15 @@ public class Event
 
     // BRD terminology: every event belongs to exactly one Venue.
     // Venue entity/API itself remains Member 1 ownership.
-    public int VenueId { get; set; }
+    public int? VenueId { get; set; }
+
+    public EventVenueMode VenueMode { get; set; } = EventVenueMode.OurProperty;
+
+    [MaxLength(200)]
+    public string? ExternalVenueName { get; set; }
+
+    [MaxLength(500)]
+    public string? ExternalVenueAddress { get; set; }
 
     public int EventCategoryId { get; set; }
     public EventCategory? EventCategory { get; set; }

@@ -786,6 +786,7 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
         db.Bookings
             .AsNoTracking()
             .Include(x => x.Event)
+            .Include(x => x.Tickets)
             .Include(x => x.Seats)
                 .ThenInclude(x => x.Seat)
             .Include(x => x.Parking)
@@ -801,8 +802,13 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
             x.CustomerId,
             x.EventId,
             x.Event.Name,
+            x.Event.StartDateTime,
+            x.Event.VenueId,
+            x.Event.ExternalVenueName,
             x.Status.ToString(),
             x.TotalAmount,
+            x.Tickets.FirstOrDefault()?.TicketType ?? "Standard",
+            x.Tickets.Sum(ticket => ticket.Quantity),
             x.Seats
                 .Select(s =>
                     s.Seat.SeatNumber)

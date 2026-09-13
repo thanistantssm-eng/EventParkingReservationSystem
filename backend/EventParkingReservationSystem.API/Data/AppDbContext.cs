@@ -62,6 +62,9 @@ public class AppDbContext : DbContext
     public DbSet<EventApproval> EventApprovals =>
         Set<EventApproval>();
 
+    public DbSet<EventFavorite> EventFavorites =>
+        Set<EventFavorite>();
+
     public DbSet<TicketType> TicketTypes =>
         Set<TicketType>();
 

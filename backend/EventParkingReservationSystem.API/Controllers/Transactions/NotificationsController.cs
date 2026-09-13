@@ -35,4 +35,12 @@ public sealed class NotificationsController(INotificationService service) : Cont
             id,
             User.RequireCustomerId(),
             ct));
+
+    [HttpPut("read-all")]
+    [Authorize(Roles = "Customer")]
+    public async Task<IActionResult> MarkAllRead(CancellationToken ct)
+    {
+        await service.MarkAllReadAsync(User.RequireCustomerId(), ct);
+        return NoContent();
+    }
 }

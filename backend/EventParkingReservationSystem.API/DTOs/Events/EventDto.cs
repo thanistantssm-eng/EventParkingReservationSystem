@@ -7,7 +7,10 @@ public class EventDto
     public string Description { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
     public int OrganizerId { get; set; }
-    public int VenueId { get; set; }
+    public int? VenueId { get; set; }
+    public string VenueMode { get; set; } = string.Empty;
+    public string? ExternalVenueName { get; set; }
+    public string? ExternalVenueAddress { get; set; }
     public int EventCategoryId { get; set; }
     public string? EventCategoryName { get; set; }
     public DateTime StartDateTime { get; set; }

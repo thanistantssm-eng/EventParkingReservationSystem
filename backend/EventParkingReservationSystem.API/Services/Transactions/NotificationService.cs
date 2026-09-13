@@ -20,5 +20,14 @@ public sealed class NotificationService(AppDbContext db) : INotificationService
         return Map(item);
     }
 
+    public async Task MarkAllReadAsync(int customerId, CancellationToken ct)
+    {
+        var unread = await db.Notifications
+            .Where(x => x.CustomerId == customerId && !x.IsRead)
+            .ToListAsync(ct);
+        foreach (var item in unread) item.IsRead = true;
+        await db.SaveChangesAsync(ct);
+    }
+
     private static NotificationDto Map(Models.Transactions.Notification x) => new(x.Id, x.CustomerId, x.BookingId, x.Title, x.Message, x.IsRead, x.CreatedAtUtc);
 }
