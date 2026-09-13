@@ -34,6 +34,11 @@ public interface IParkingService
         CreateParkingSlotDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<ParkingSlotDto>> CreateSlotsBulkAsync(
+        int areaId,
+        BulkCreateParkingSlotsDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<ParkingSlotDto> UpdateSlotAsync(
         int slotId,
         UpdateParkingSlotDto dto,

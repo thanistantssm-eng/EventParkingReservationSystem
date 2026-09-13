@@ -85,6 +85,36 @@ public class EmailService : IEmailService
             htmlBody);
     }
 
+    public Task SendEventReportAsync(
+        string receiverEmail,
+        string organizerName,
+        string eventName,
+        string reportSummary)
+    {
+        var safeName = HtmlEncoder.Default.Encode(organizerName);
+        var safeEvent = HtmlEncoder.Default.Encode(eventName);
+        var safeSummary = HtmlEncoder.Default.Encode(reportSummary)
+            .Replace("\r\n", "<br>", StringComparison.Ordinal)
+            .Replace("\n", "<br>", StringComparison.Ordinal);
+
+        var htmlBody = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:30px;">
+                <div style="max-width:680px;margin:auto;background:white;padding:30px;border-radius:10px;">
+                    <h2>Eventora Event Report</h2>
+                    <p>Hello {safeName},</p>
+                    <p>An administrator generated the latest report for <strong>{safeEvent}</strong>.</p>
+                    <div style="line-height:1.7;background:#f7f9f8;padding:20px;border-radius:8px;">{safeSummary}</div>
+                    <p>This report was generated from live booking, parking and payment records.</p>
+                </div>
+            </body>
+            </html>
+            """;
+
+        return SendHtmlEmailAsync(receiverEmail, $"Event report - {eventName}", htmlBody);
+    }
+
     private Task SendOtpEmailAsync(
         string receiverEmail,
         string displayName,

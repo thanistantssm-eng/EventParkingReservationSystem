@@ -1,5 +1,7 @@
+using EventParkingReservationSystem.API.Data;
 using EventParkingReservationSystem.API.DTOs.Events;
 using EventParkingReservationSystem.API.Interfaces.Events;
+using EventParkingReservationSystem.API.Models.Core;
 using EventParkingReservationSystem.API.Models.Events;
 using EventParkingReservationSystem.API.Repositories.Events.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +12,14 @@ public class ApprovalService(
     IApprovalRepository approvalRepository,
     IEventRepository eventRepository,
     ITicketRepository ticketRepository,
-    ISeatRepository seatRepository) : IApprovalService
+    ISeatRepository seatRepository,
+    AppDbContext db) : IApprovalService
 {
     private readonly IApprovalRepository _approvals = approvalRepository;
     private readonly IEventRepository _events = eventRepository;
     private readonly ITicketRepository _tickets = ticketRepository;
     private readonly ISeatRepository _seats = seatRepository;
+    private readonly AppDbContext _db = db;
 
     public async Task<EventApprovalDto> SubmitAsync(int eventId, SubmitApprovalDto dto, int actorUserId, int? actorOrganizerId, string actorRole, CancellationToken cancellationToken = default)
     {
@@ -60,6 +64,21 @@ public class ApprovalService(
         entity.UpdatedAt = DateTime.UtcNow;
 
         await _approvals.AddAsync(approval, cancellationToken);
+
+        var adminUserIds = await _db.Users
+            .Where(x => x.Role == UserRole.Admin && x.IsActive)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        _db.UserNotifications.AddRange(adminUserIds.Select(userId => new UserNotification
+        {
+            UserId = userId,
+            Title = "New approval request",
+            Message = $"{entity.Name} was submitted for approval.",
+            Type = "Approval",
+            CreatedAt = DateTime.UtcNow
+        }));
+
         await _approvals.SaveChangesAsync(cancellationToken);
         return await GetDtoAsync(approval.Id, cancellationToken);
     }
@@ -164,6 +183,25 @@ public class ApprovalService(
         evt.ApprovedAt = approve ? reviewedAt : null;
         evt.RejectionReason = approve ? null : normalizedReason;
         evt.UpdatedAt = reviewedAt;
+
+        var organizerUserId = await _db.Organizers
+            .Where(x => x.Id == evt.OrganizerId)
+            .Select(x => (int?)x.UserId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (organizerUserId.HasValue)
+        {
+            _db.UserNotifications.Add(new UserNotification
+            {
+                UserId = organizerUserId.Value,
+                Title = approve ? "Event approved" : "Event rejected",
+                Message = approve
+                    ? $"{evt.Name} was approved and is ready for publication."
+                    : $"{evt.Name} was rejected. Reason: {normalizedReason}",
+                Type = "Approval",
+                CreatedAt = reviewedAt
+            });
+        }
 
         await _approvals.SaveChangesAsync(cancellationToken);
         return await GetDtoAsync(approvalId, cancellationToken);

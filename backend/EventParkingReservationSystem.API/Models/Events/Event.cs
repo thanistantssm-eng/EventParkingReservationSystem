@@ -38,7 +38,9 @@ public class Event
     public EventType EventType { get; set; } = EventType.SeatBased;
 
     // Organizer is owned by Member 1. Keep only the FK here to avoid redefining Core models.
-    public int OrganizerId { get; set; }
+    // Null denotes an Admin-owned event. Organizer-owned events always carry
+    // the organizer profile id and retain the existing ownership checks.
+    public int? OrganizerId { get; set; }
 
     // BRD terminology: every event belongs to exactly one Venue.
     // Venue entity/API itself remains Member 1 ownership.

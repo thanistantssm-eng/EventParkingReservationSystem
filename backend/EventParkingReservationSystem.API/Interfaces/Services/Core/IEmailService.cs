@@ -23,4 +23,10 @@ public interface IEmailService
         string customerName,
         string bookingNumber,
         int holdMinutes);
+
+    Task SendEventReportAsync(
+        string receiverEmail,
+        string organizerName,
+        string eventName,
+        string reportSummary);
 }

@@ -28,3 +28,50 @@ public sealed record OrganizerEventRevenueDto(
     decimal TicketRevenue,
     decimal ParkingRevenue,
     decimal TotalRevenue);
+
+public sealed record EventReportTicketDto(
+    string TicketType,
+    int ConfiguredQuantity,
+    int SoldQuantity,
+    decimal Revenue);
+
+public sealed record EventReportStatusDto(
+    string Status,
+    int Count);
+
+public sealed record EventReportPaymentDto(
+    int Completed,
+    int Pending,
+    int Failed,
+    int Refunded,
+    decimal Revenue,
+    decimal Refunds);
+
+public sealed record EventReportDto(
+    int EventId,
+    string EventName,
+    string EventStatus,
+    DateTime StartDateTime,
+    DateTime EndDateTime,
+    string Venue,
+    int? OrganizerId,
+    string? OrganizerName,
+    string? OrganizerEmail,
+    int TotalBookings,
+    int ConfirmedBookings,
+    int CancelledBookings,
+    int CustomerCount,
+    int SeatCapacity,
+    int SeatsBooked,
+    int ParkingCapacity,
+    int ParkingBooked,
+    int ParkingAvailable,
+    int ParkingReservations,
+    decimal TicketRevenue,
+    decimal ParkingRevenue,
+    decimal TotalRevenue,
+    decimal Refunds,
+    IReadOnlyList<EventReportTicketDto> Tickets,
+    IReadOnlyList<EventReportStatusDto> BookingStatuses,
+    EventReportPaymentDto Payments,
+    DateTime GeneratedAtUtc);

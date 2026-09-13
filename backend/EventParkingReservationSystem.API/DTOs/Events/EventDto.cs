@@ -6,7 +6,7 @@ public class EventDto
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
-    public int OrganizerId { get; set; }
+    public int? OrganizerId { get; set; }
     public int? VenueId { get; set; }
     public string VenueMode { get; set; } = string.Empty;
     public string? ExternalVenueName { get; set; }

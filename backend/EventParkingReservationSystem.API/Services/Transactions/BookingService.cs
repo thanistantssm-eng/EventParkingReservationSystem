@@ -161,8 +161,25 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
                     "Your booking is awaiting payment."
             });
 
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            await tx.RollbackAsync(ct);
+            db.ChangeTracker.Clear();
+
+            if (request.ParkingSlotId.HasValue)
+            {
+                throw new ConflictException(
+                    "The selected parking slot is no longer available. Please choose another slot.");
+            }
+
+            throw new ConflictException(
+                "One or more selected seats are no longer available. Please refresh and choose again.");
+        }
 
         return await GetAsync(
             booking.Id,
@@ -423,8 +440,18 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
 
         booking.TotalAmount += parking.Fee;
 
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            await tx.RollbackAsync(ct);
+            db.ChangeTracker.Clear();
+            throw new ConflictException(
+                "The selected parking slot is no longer available. Please choose another slot.");
+        }
 
         return await GetAsync(id, ct);
     }
@@ -750,7 +777,7 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
         if (alreadyReserved)
         {
             throw new ConflictException(
-                "The selected parking slot is already reserved.");
+                "The selected parking slot is no longer available. Please choose another slot.");
         }
 
         return new ParkingSelection(
@@ -792,6 +819,7 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
             .Include(x => x.Parking)
                 .ThenInclude(x =>
                     x!.ParkingSlot)
+                    .ThenInclude(x => x.ParkingArea)
             .Include(x => x.Payment);
 
     private static BookingDto Map(
@@ -816,6 +844,14 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
             x.Parking?
                 .ParkingSlot
                 .SlotNumber,
+            x.Parking?
+                .ParkingSlot
+                .ParkingArea?
+                .Name,
+            x.Parking?
+                .ParkingSlot
+                .SlotType,
+            x.Parking?.Fee ?? 0m,
             x.Payment?
                 .Status
                 .ToString()

@@ -257,6 +257,80 @@ public class ParkingService(
         return MapSlot(entity, false, 0m);
     }
 
+    public async Task<IReadOnlyList<ParkingSlotDto>> CreateSlotsBulkAsync(
+        int areaId,
+        BulkCreateParkingSlotsDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var area = await _parking.GetAreaAsync(
+            areaId,
+            false,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Parking area not found.");
+
+        if (!area.IsActive)
+            throw new InvalidOperationException("Cannot add slots to an inactive parking area.");
+
+        var firstZone = (dto.StartingZone ?? string.Empty).Trim().ToUpperInvariant();
+        if (firstZone.Length != 1 || firstZone[0] is < 'A' or > 'Z')
+            throw new ArgumentException("StartingZone must be one letter from A to Z.");
+
+        if (firstZone[0] + dto.ZoneCount - 1 > 'Z')
+            throw new ArgumentException("The generated zones cannot extend past Z.");
+
+        var total = checked(dto.ZoneCount * dto.SlotsPerZone);
+        if (total > 500)
+            throw new ArgumentException("A maximum of 500 parking slots can be generated at once.");
+
+        var normalizedType = Normalize(dto.SlotType);
+        if (normalizedType is { Length: > 50 })
+            throw new ArgumentException("Parking slot type cannot exceed 50 characters.");
+
+        var generatedNumbers = new List<string>(total);
+        var numberWidth = Math.Max(2, (dto.StartingNumber + dto.SlotsPerZone - 1).ToString().Length);
+        for (var zoneIndex = 0; zoneIndex < dto.ZoneCount; zoneIndex++)
+        {
+            var zone = (char)(firstZone[0] + zoneIndex);
+            for (var slotIndex = 0; slotIndex < dto.SlotsPerZone; slotIndex++)
+            {
+                generatedNumbers.Add($"{zone}{dto.StartingNumber + slotIndex:D(numberWidth)}");
+            }
+        }
+
+        var existing = (await _parking.Slots()
+                .Where(x => x.ParkingAreaId == areaId)
+                .Select(x => x.SlotNumber)
+                .ToListAsync(cancellationToken))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var duplicate = generatedNumbers.FirstOrDefault(existing.Contains);
+        if (duplicate is not null)
+            throw new InvalidOperationException($"Parking slot '{duplicate}' already exists in this area.");
+
+        var activeCount = await _parking.Slots()
+            .CountAsync(x => x.ParkingAreaId == areaId && x.IsActive, cancellationToken);
+        if (activeCount + total > area.Capacity)
+            throw new InvalidOperationException(
+                $"Generating {total} slots would exceed the parking area capacity of {area.Capacity}.");
+
+        var now = DateTime.UtcNow;
+        var entities = generatedNumbers.Select(number => new ParkingSlot
+        {
+            ParkingAreaId = areaId,
+            SlotNumber = number,
+            SlotType = normalizedType,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        }).ToList();
+
+        foreach (var entity in entities)
+            await _parking.AddSlotAsync(entity, cancellationToken);
+
+        await _parking.SaveChangesAsync(cancellationToken);
+        return entities.Select(x => MapSlot(x, false, 0m)).ToList();
+    }
+
     public async Task<ParkingSlotDto> UpdateSlotAsync(
         int slotId,
         UpdateParkingSlotDto dto,

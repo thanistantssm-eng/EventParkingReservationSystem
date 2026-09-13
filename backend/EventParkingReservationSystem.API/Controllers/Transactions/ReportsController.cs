@@ -31,4 +31,36 @@ public sealed class ReportsController(IReportService service) : ControllerBase
         int customerId,
         CancellationToken ct) =>
         Ok(await service.GetCustomerSummaryAsync(customerId, ct));
+
+    [HttpGet("organizer/events/{eventId:int}")]
+    [Authorize(Roles = "Organizer")]
+    public async Task<ActionResult<EventReportDto>> OrganizerEventReport(
+        int eventId,
+        CancellationToken ct) =>
+        Ok(await service.GetOrganizerEventReportAsync(
+            User.RequireUserId(),
+            eventId,
+            ct));
+
+    [HttpGet("admin/organizers/{organizerId:int}/events/{eventId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<EventReportDto>> AdminOrganizerEventReport(
+        int organizerId,
+        int eventId,
+        CancellationToken ct) =>
+        Ok(await service.GetAdminOrganizerEventReportAsync(
+            organizerId,
+            eventId,
+            ct));
+
+    [HttpPost("admin/organizers/{organizerId:int}/events/{eventId:int}/send")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<EventReportDto>> SendAdminOrganizerEventReport(
+        int organizerId,
+        int eventId,
+        CancellationToken ct) =>
+        Ok(await service.SendAdminOrganizerEventReportAsync(
+            organizerId,
+            eventId,
+            ct));
 }

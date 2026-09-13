@@ -107,6 +107,30 @@ public class EventsController(IEventService service) : ControllerBase
             created);
     }
 
+    [Authorize(Roles = "Admin")]
+    [HttpPost("admin-owned")]
+    [ProducesResponseType(typeof(EventDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EventDto>> CreateAdminOwned(
+        CreateEventDto dto,
+        CancellationToken cancellationToken)
+    {
+        dto.OrganizerId = null;
+
+        var created = await _service.CreateAsync(
+            dto,
+            UserId(),
+            null,
+            "Admin",
+            cancellationToken);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = created.Id },
+            created);
+    }
+
     [Authorize(Roles = "Admin,Organizer")]
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(EventDto), StatusCodes.Status200OK)]

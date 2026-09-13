@@ -1,8 +1,10 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventParkingReservationSystem.API", "..\backend\EventParkingReservationSystem.API\EventParkingReservationSystem.API.csproj", "{A1B2C3D4-E5F6-47A8-9012-3456789ABCDE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventParkingReservationSystem.Tests", "..\tests\EventParkingReservationSystem.Tests\EventParkingReservationSystem.Tests.csproj", "{30A71506-55FD-4D7F-A0B8-E2488F3C7A89}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,5 +16,9 @@ Global
 		{A1B2C3D4-E5F6-47A8-9012-3456789ABCDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1B2C3D4-E5F6-47A8-9012-3456789ABCDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-47A8-9012-3456789ABCDE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30A71506-55FD-4D7F-A0B8-E2488F3C7A89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30A71506-55FD-4D7F-A0B8-E2488F3C7A89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30A71506-55FD-4D7F-A0B8-E2488F3C7A89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30A71506-55FD-4D7F-A0B8-E2488F3C7A89}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

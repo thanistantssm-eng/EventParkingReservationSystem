@@ -18,6 +18,21 @@ public interface IReportService
             int userId,
             int eventId,
             CancellationToken ct);
+
+    Task<EventReportDto> GetOrganizerEventReportAsync(
+        int userId,
+        int eventId,
+        CancellationToken ct);
+
+    Task<EventReportDto> GetAdminOrganizerEventReportAsync(
+        int organizerId,
+        int eventId,
+        CancellationToken ct);
+
+    Task<EventReportDto> SendAdminOrganizerEventReportAsync(
+        int organizerId,
+        int eventId,
+        CancellationToken ct);
 }
 
 

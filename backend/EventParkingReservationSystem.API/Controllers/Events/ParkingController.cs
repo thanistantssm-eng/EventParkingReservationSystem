@@ -138,6 +138,25 @@ public class ParkingController(IParkingService service) : ControllerBase
     }
 
     [Authorize(Roles = "Admin")]
+    [HttpPost("areas/{areaId:int}/slots/bulk")]
+    [ProducesResponseType(typeof(IReadOnlyList<ParkingSlotDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<IReadOnlyList<ParkingSlotDto>>> CreateSlotsBulk(
+        int areaId,
+        BulkCreateParkingSlotsDto dto,
+        CancellationToken cancellationToken)
+    {
+        var created = await _service.CreateSlotsBulkAsync(
+            areaId,
+            dto,
+            cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, created);
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpPut("slots/{slotId:int}")]
     [ProducesResponseType(typeof(ParkingSlotDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

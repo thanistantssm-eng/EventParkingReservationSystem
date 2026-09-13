@@ -1,6 +1,7 @@
 using EventParkingReservationSystem.API.Data;
 using EventParkingReservationSystem.API.DTOs.Events;
 using EventParkingReservationSystem.API.Interfaces.Events;
+using EventParkingReservationSystem.API.Models.Core;
 using EventParkingReservationSystem.API.Models.Events;
 using EventParkingReservationSystem.API.Models.Transactions;
 using EventParkingReservationSystem.API.Repositories.Events.Interfaces;
@@ -162,10 +163,8 @@ public class EventService(
         if (category is null || !category.IsActive)
             throw new ArgumentException("Event category does not exist or is inactive.");
 
-        var organizerId = IsAdmin(actorRole)
+        int? organizerId = IsAdmin(actorRole)
             ? dto.OrganizerId
-                ?? throw new ArgumentException(
-                    "OrganizerId is required when Admin creates an event for an organizer.")
             : actorOrganizerId
                 ?? throw new UnauthorizedAccessException(
                     "Organizer account/claim is required to create an event.");
@@ -176,7 +175,8 @@ public class EventService(
                 !await _references.VenueExistsAsync(dto.VenueId!.Value, cancellationToken))
                 throw new ArgumentException("Venue does not exist.");
 
-            if (!await _references.OrganizerExistsAsync(organizerId, cancellationToken))
+            if (organizerId.HasValue &&
+                !await _references.OrganizerExistsAsync(organizerId.Value, cancellationToken))
                 throw new ArgumentException("Organizer does not exist.");
         }
 
@@ -306,6 +306,7 @@ public class EventService(
         }
 
         var hasActiveBookings = await HasActiveBookingsAsync(id, cancellationToken);
+        var materialChanges = DescribeMaterialChanges(entity, dto, type, venueMode);
 
         if (hasActiveBookings && entity.TicketPrice != dto.TicketPrice)
         {
@@ -351,6 +352,96 @@ public class EventService(
         {
             entity.Status = EventStatus.Draft;
             entity.RejectionReason = null;
+        }
+
+        if (hasActiveBookings && materialChanges.Count > 0)
+        {
+            var affectedBookings = await _db.Bookings
+                .AsNoTracking()
+                .Where(x => x.EventId == id && x.Status != BookingStatus.Cancelled)
+                .Select(x => new { x.Id, x.CustomerId })
+                .ToListAsync(cancellationToken);
+
+            var message = $"{entity.Name} was updated: {string.Join("; ", materialChanges)}.";
+            _db.Notifications.AddRange(affectedBookings.Select(booking => new Notification
+            {
+                CustomerId = booking.CustomerId,
+                BookingId = booking.Id,
+                Title = "Event updated",
+                Message = message
+            }));
+
+            if (IsOrganizer(actorRole))
+            {
+                var adminIds = await _db.Users
+                    .Where(x => x.Role == UserRole.Admin && x.IsActive)
+                    .Select(x => x.Id)
+                    .ToListAsync(cancellationToken);
+                _db.UserNotifications.AddRange(adminIds.Select(userId => new UserNotification
+                {
+                    UserId = userId,
+                    Title = "Organizer event updated",
+                    Message = message,
+                    Type = "EventChange",
+                    CreatedAt = DateTime.UtcNow
+                }));
+            }
+            else if (entity.OrganizerId.HasValue)
+            {
+                var organizerUserId = await _db.Organizers
+                    .Where(x => x.Id == entity.OrganizerId.Value)
+                    .Select(x => (int?)x.UserId)
+                    .SingleOrDefaultAsync(cancellationToken);
+                if (organizerUserId.HasValue)
+                {
+                    _db.UserNotifications.Add(new UserNotification
+                    {
+                        UserId = organizerUserId.Value,
+                        Title = "Admin updated your event",
+                        Message = message,
+                        Type = "EventChange",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+        }
+
+        if (!hasActiveBookings && materialChanges.Count > 0)
+        {
+            var message = $"{entity.Name} was updated: {string.Join("; ", materialChanges)}.";
+            if (IsOrganizer(actorRole))
+            {
+                var adminIds = await _db.Users
+                    .Where(x => x.Role == UserRole.Admin && x.IsActive)
+                    .Select(x => x.Id)
+                    .ToListAsync(cancellationToken);
+                _db.UserNotifications.AddRange(adminIds.Select(userId => new UserNotification
+                {
+                    UserId = userId,
+                    Title = "Organizer event updated",
+                    Message = message,
+                    Type = "EventChange",
+                    CreatedAt = DateTime.UtcNow
+                }));
+            }
+            else if (entity.OrganizerId.HasValue)
+            {
+                var organizerUserId = await _db.Organizers
+                    .Where(x => x.Id == entity.OrganizerId.Value)
+                    .Select(x => (int?)x.UserId)
+                    .SingleOrDefaultAsync(cancellationToken);
+                if (organizerUserId.HasValue)
+                {
+                    _db.UserNotifications.Add(new UserNotification
+                    {
+                        UserId = organizerUserId.Value,
+                        Title = "Admin updated your event",
+                        Message = message,
+                        Type = "EventChange",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
         }
 
         await _events.SaveChangesAsync(cancellationToken);
@@ -408,10 +499,16 @@ public class EventService(
         var entity = await _events.GetByIdAsync(id, true, cancellationToken)
             ?? throw new KeyNotFoundException("Event not found.");
 
-        if (entity.Status != EventStatus.Approved)
+        var publishableStatus = entity.OrganizerId.HasValue
+            ? EventStatus.Approved
+            : EventStatus.Draft;
+
+        if (entity.Status != publishableStatus)
         {
             throw new InvalidOperationException(
-                "Only Approved events can be published.");
+                entity.OrganizerId.HasValue
+                    ? "Only Approved organizer events can be published."
+                    : "Only Draft admin-owned events can be published.");
         }
 
         var activeTickets = await _tickets.Query()
@@ -446,6 +543,25 @@ public class EventService(
         entity.Status = EventStatus.Published;
         entity.PublishedAt = DateTime.UtcNow;
         entity.UpdatedAt = DateTime.UtcNow;
+
+        if (entity.OrganizerId.HasValue)
+        {
+            var organizerUserId = await _db.Organizers
+                .Where(x => x.Id == entity.OrganizerId.Value)
+                .Select(x => (int?)x.UserId)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (organizerUserId.HasValue)
+            {
+                _db.UserNotifications.Add(new UserNotification
+                {
+                    UserId = organizerUserId.Value,
+                    Title = "Event published",
+                    Message = $"{entity.Name} is now published and visible to customers.",
+                    Type = "Publication",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
 
         await _events.SaveChangesAsync(cancellationToken);
 
@@ -539,7 +655,11 @@ public class EventService(
                 CustomerId = booking.CustomerId,
                 BookingId = booking.Id,
                 Title = "Event cancelled",
-                Message = $"{entity.Name} was cancelled. {reason}"
+                Message = $"{entity.Name} on {entity.StartDateTime:u} was cancelled. " +
+                          $"Reason: {reason}. Booking {booking.BookingNumber} is cancelled. " +
+                          (booking.Payment?.Status == PaymentStatus.Refunded
+                              ? "The completed payment has been marked refunded."
+                              : "No completed payment refund is due.")
             });
         }
 
@@ -558,6 +678,41 @@ public class EventService(
         entity.Status = EventStatus.Cancelled;
         entity.RejectionReason = reason;
         entity.UpdatedAt = now;
+
+        var lifecycleMessage = $"{entity.Name} was cancelled. Reason: {reason}";
+        if (IsOrganizer(actorRole))
+        {
+            var adminIds = await _db.Users
+                .Where(x => x.Role == UserRole.Admin && x.IsActive)
+                .Select(x => x.Id)
+                .ToListAsync(cancellationToken);
+            _db.UserNotifications.AddRange(adminIds.Select(userId => new UserNotification
+            {
+                UserId = userId,
+                Title = "Organizer event cancellation",
+                Message = lifecycleMessage,
+                Type = "Cancellation",
+                CreatedAt = now
+            }));
+        }
+        else if (entity.OrganizerId.HasValue)
+        {
+            var organizerUserId = await _db.Organizers
+                .Where(x => x.Id == entity.OrganizerId.Value)
+                .Select(x => (int?)x.UserId)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (organizerUserId.HasValue)
+            {
+                _db.UserNotifications.Add(new UserNotification
+                {
+                    UserId = organizerUserId.Value,
+                    Title = "Event cancelled by Admin",
+                    Message = lifecycleMessage,
+                    Type = "Cancellation",
+                    CreatedAt = now
+                });
+            }
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -701,6 +856,30 @@ public class EventService(
 
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static List<string> DescribeMaterialChanges(
+        Event entity,
+        UpdateEventDto dto,
+        EventType type,
+        EventVenueMode venueMode)
+    {
+        var changes = new List<string>();
+        if (!string.Equals(entity.Name, dto.Name.Trim(), StringComparison.Ordinal))
+            changes.Add($"name changed from '{entity.Name}' to '{dto.Name.Trim()}'");
+        if (entity.StartDateTime != dto.StartDateTime)
+            changes.Add($"start changed from {entity.StartDateTime:u} to {dto.StartDateTime:u}");
+        if (entity.EndDateTime != dto.EndDateTime)
+            changes.Add($"end changed from {entity.EndDateTime:u} to {dto.EndDateTime:u}");
+        if (entity.EventType != type)
+            changes.Add("entry/seat rules changed");
+        if (entity.TicketPrice != dto.TicketPrice)
+            changes.Add($"base price changed from {entity.TicketPrice:0.##} to {dto.TicketPrice:0.##}");
+        if (entity.VenueMode != venueMode || entity.VenueId != dto.VenueId ||
+            !string.Equals(entity.ExternalVenueName, Normalize(dto.ExternalVenueName), StringComparison.Ordinal) ||
+            !string.Equals(entity.ExternalVenueAddress, Normalize(dto.ExternalVenueAddress), StringComparison.Ordinal))
+            changes.Add("venue changed");
+        return changes;
+    }
 
     private static string GenerateEventQr(int eventId) =>
         $"EVT-{eventId}-{Guid.NewGuid():N}";

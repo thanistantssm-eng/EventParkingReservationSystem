@@ -30,3 +30,21 @@ public class UpdateParkingSlotDto : CreateParkingSlotDto
 {
     public bool IsActive { get; set; } = true;
 }
+
+public class BulkCreateParkingSlotsDto
+{
+    [Required, MaxLength(3)]
+    public string StartingZone { get; set; } = "A";
+
+    [Range(1, 26)]
+    public int ZoneCount { get; set; } = 1;
+
+    [Range(1, 100)]
+    public int SlotsPerZone { get; set; } = 10;
+
+    [Range(1, 9999)]
+    public int StartingNumber { get; set; } = 1;
+
+    [MaxLength(50)]
+    public string? SlotType { get; set; }
+}
