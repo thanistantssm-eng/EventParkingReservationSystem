@@ -44,6 +44,14 @@ public class JwtTokenService
                     user.Id.ToString()
                 ),
 
+                // Keep an explicit application claim as well as the standard
+                // NameIdentifier claim. This avoids relying on framework claim
+                // mapping when another service needs the authenticated user id.
+                new(
+                    "userId",
+                    user.Id.ToString()
+                ),
+
                 new(
                     ClaimTypes.Name,
                     user.Username

@@ -12,6 +12,7 @@ using EventParkingReservationSystem.API.Services.Core;
 using EventParkingReservationSystem.API.Services.Dashboards;
 using EventParkingReservationSystem.API.Services.Transactions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -271,6 +272,12 @@ builder.Services
 // ============================================================
 
 builder.Services.AddAuthorization();
+
+// Resolve role-profile identifiers from the authenticated UserId instead of
+// trusting a possibly stale custom claim from an older JWT.
+builder.Services.AddScoped<
+    IClaimsTransformation,
+    OrganizerClaimsTransformation>();
 
 
 // ============================================================

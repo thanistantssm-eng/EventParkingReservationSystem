@@ -37,7 +37,6 @@ public class EventReferenceReadService : IEventReferenceReadService
             .AnyAsync(
                 x =>
                     x.Id == organizerId &&
-                    x.IsVerified &&
                     x.User.IsActive,
                 cancellationToken);
     }
