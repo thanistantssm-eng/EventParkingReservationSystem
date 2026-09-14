@@ -5,6 +5,7 @@ using EventParkingReservationSystem.API.Models.Core;
 using EventParkingReservationSystem.API.Models.Events;
 using EventParkingReservationSystem.API.Models.Transactions;
 using EventParkingReservationSystem.API.Repositories.Events.Interfaces;
+using EventParkingReservationSystem.API.Services.Transactions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventParkingReservationSystem.API.Services.Events;
@@ -607,6 +608,20 @@ public class EventService(
         string actorRole,
         CancellationToken cancellationToken = default)
     {
+        return await ReservationExecution.RunAsync(_db,
+            () => CancelCoreAsync(id, dto, actorUserId, actorOrganizerId, actorRole, cancellationToken));
+    }
+
+    private async Task<EventDto> CancelCoreAsync(
+        int id, CancelEventDto dto, int actorUserId, int? actorOrganizerId,
+        string actorRole, CancellationToken cancellationToken)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, cancellationToken);
+        await _db.Events
+            .FromSqlInterpolated($"SELECT * FROM [Events] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {id}")
+            .SingleOrDefaultAsync(cancellationToken);
+
         var entity = await GetEditableEventAsync(
             id,
             actorOrganizerId,
@@ -618,8 +633,6 @@ public class EventService(
 
         var now = DateTime.UtcNow;
         var reason = Normalize(dto.Reason) ?? "Cancelled by event management.";
-
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
 
         var bookings = await _db.Bookings
             .Include(x => x.Seats)

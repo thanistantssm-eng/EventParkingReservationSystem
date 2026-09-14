@@ -7,9 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace EventParkingReservationSystem.API.Services.Core;
 
 /// <summary>
-/// Resolves the organizer profile from the authenticated user on every request.
-/// The database relationship is the authorization source of truth; the JWT
-/// organizerId claim is only a transport hint and may be stale in an old token.
+/// Resolves role profile identifiers from the authenticated user on every
+/// request. The database relationship is the authorization source of truth;
+/// custom JWT identifiers are transport hints and may be absent or stale.
 /// </summary>
 public sealed class OrganizerClaimsTransformation(
     AppDbContext db,
@@ -18,8 +18,7 @@ public sealed class OrganizerClaimsTransformation(
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (principal.Identity is not ClaimsIdentity identity ||
-            !identity.IsAuthenticated ||
-            !IsOrganizer(principal))
+            !identity.IsAuthenticated)
         {
             return principal;
         }
@@ -33,16 +32,61 @@ public sealed class OrganizerClaimsTransformation(
             return principal;
         }
 
-        var organizerId = await db.Organizers
-            .AsNoTracking()
-            .Where(x => x.UserId == userId && x.User.IsActive)
-            .Select(x => (int?)x.Id)
-            .SingleOrDefaultAsync();
+        var role = principal.FindFirstValue(ClaimTypes.Role)
+            ?? principal.FindFirstValue("role");
+
+        if (string.Equals(
+                role,
+                UserRole.Organizer.ToString(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var organizerId = await db.Organizers
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.User.IsActive)
+                .Select(x => (int?)x.Id)
+                .SingleOrDefaultAsync();
+
+            ReplaceProfileClaim(
+                identity,
+                "organizerId",
+                organizerId,
+                userId,
+                "Organizer");
+        }
+        else if (string.Equals(
+                     role,
+                     UserRole.Customer.ToString(),
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            var customerId = await db.Customers
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.User.IsActive)
+                .Select(x => (int?)x.Id)
+                .SingleOrDefaultAsync();
+
+            ReplaceProfileClaim(
+                identity,
+                "customerId",
+                customerId,
+                userId,
+                "Customer");
+        }
+
+        return principal;
+    }
+
+    private void ReplaceProfileClaim(
+        ClaimsIdentity identity,
+        string claimType,
+        int? profileId,
+        int userId,
+        string role)
+    {
 
         var existingClaims = identity.Claims
             .Where(x => string.Equals(
                 x.Type,
-                "organizerId",
+                claimType,
                 StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -51,37 +95,27 @@ public sealed class OrganizerClaimsTransformation(
             identity.RemoveClaim(claim);
         }
 
-        if (organizerId.HasValue)
+        if (profileId.HasValue)
         {
             identity.AddClaim(new Claim(
-                "organizerId",
-                organizerId.Value.ToString()));
+                claimType,
+                profileId.Value.ToString()));
 
-            if (existingClaims.Any(x => x.Value != organizerId.Value.ToString()))
+            if (existingClaims.Count == 0 ||
+                existingClaims.Any(x => x.Value != profileId.Value.ToString()))
             {
                 logger.LogWarning(
-                    "Corrected stale organizer identity claim for authenticated user {UserId}.",
+                    "Added or corrected {Role} profile claim for authenticated user {UserId}.",
+                    role,
                     userId);
             }
         }
         else
         {
             logger.LogWarning(
-                "Authenticated Organizer user {UserId} has no active organizer profile.",
+                "Authenticated {Role} user {UserId} has no active role profile.",
+                role,
                 userId);
         }
-
-        return principal;
-    }
-
-    private static bool IsOrganizer(ClaimsPrincipal principal)
-    {
-        var role = principal.FindFirstValue(ClaimTypes.Role)
-            ?? principal.FindFirstValue("role");
-
-        return string.Equals(
-            role,
-            UserRole.Organizer.ToString(),
-            StringComparison.OrdinalIgnoreCase);
     }
 }

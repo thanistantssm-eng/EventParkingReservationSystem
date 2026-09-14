@@ -30,7 +30,36 @@ public sealed class BookingExpiryService(
             var now = DateTime.UtcNow;
             var cutoff = now.AddMinutes(-HoldMinutes);
 
+            var expiryEmails = await ReservationExecution.InTransactionAsync(
+                db, () => ExpireCoreAsync(now, cutoff, ct), ct);
+
+            foreach (var email in expiryEmails)
+            {
+                try
+                {
+                    await emailService.SendBookingExpiredAsync(
+                        email.Email, email.CustomerName, email.BookingNumber, HoldMinutes);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex,
+                        "Booking {BookingNumber} expired, but the expiry email could not be sent.",
+                        email.BookingNumber);
+                }
+            }
+        }
+        finally
+        {
+            CleanupLock.Release();
+        }
+    }
+
+    private async Task<List<ExpiryEmail>> ExpireCoreAsync(
+        DateTime now, DateTime cutoff, CancellationToken ct)
+    {
+
             var staleBookings = await db.Bookings
+                .FromSqlInterpolated($"SELECT * FROM [Bookings] WITH (UPDLOCK, HOLDLOCK) WHERE [Status] = 'PendingPayment' AND [CreatedAtUtc] <= {cutoff}")
                 .Include(x => x.Seats)
                 .Include(x => x.Parking)
                 .Include(x => x.Payment)
@@ -42,7 +71,7 @@ public sealed class BookingExpiryService(
 
             if (staleBookings.Count == 0)
             {
-                return;
+                return [];
             }
 
             var expiryEmails = new List<ExpiryEmail>();
@@ -114,31 +143,7 @@ public sealed class BookingExpiryService(
             // Persist the cancellation/release first. Email delivery must never
             // keep inventory locked when SMTP is unavailable.
             await db.SaveChangesAsync(ct);
-
-            foreach (var email in expiryEmails)
-            {
-                try
-                {
-                    await emailService.SendBookingExpiredAsync(
-                        email.Email,
-                        email.CustomerName,
-                        email.BookingNumber,
-                        HoldMinutes);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(
-                        ex,
-                        "Booking {BookingNumber} expired successfully, but the expiry email could not be sent to {Email}.",
-                        email.BookingNumber,
-                        email.Email);
-                }
-            }
-        }
-        finally
-        {
-            CleanupLock.Release();
-        }
+            return expiryEmails;
     }
 
     private sealed record ExpiryEmail(

@@ -21,7 +21,8 @@ public sealed class OrganizerEventFlowIntegrationTests
     {
         var databaseName = $"EventoraOrganizerFlow_{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer($"Server=(localdb)\\MSSQLLocalDB;Database={databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True")
+            .UseSqlServer($"Server=(localdb)\\MSSQLLocalDB;Database={databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True",
+                sql => sql.EnableRetryOnFailure())
             .Options;
 
         await using var db = new AppDbContext(options);
@@ -51,13 +52,25 @@ public sealed class OrganizerEventFlowIntegrationTests
                     IsVerified = false
                 }
             };
+            var customerUser = new User
+            {
+                Username = "customer",
+                Email = "customer@example.test",
+                PasswordHash = "test",
+                Role = UserRole.Customer,
+                Customer = new Customer
+                {
+                    Name = "Integration Customer",
+                    Email = "customer@example.test"
+                }
+            };
             var category = new EventCategory
             {
                 Name = "Integration Category",
                 IsActive = true
             };
 
-            db.Users.AddRange(admin, organizerUser);
+            db.Users.AddRange(admin, organizerUser, customerUser);
             db.EventCategories.Add(category);
             await db.SaveChangesAsync();
 
@@ -82,6 +95,25 @@ public sealed class OrganizerEventFlowIntegrationTests
             var organizerId = int.Parse(principal.FindFirstValue("organizerId")!);
             Assert.Equal(organizerUser.Organizer!.Id, organizerId);
             Assert.NotEqual(organizerUser.Id, organizerId);
+
+            var customerIdentity = new ClaimsIdentity(
+                new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, customerUser.Id.ToString()),
+                    new Claim(ClaimTypes.Role, UserRole.Customer.ToString()),
+                    new Claim("customerId", customerUser.Id.ToString())
+                },
+                "Test");
+            var customerPrincipal = new ClaimsPrincipal(customerIdentity);
+
+            await claimsTransformation.TransformAsync(customerPrincipal);
+
+            Assert.Equal(
+                customerUser.Customer!.Id.ToString(),
+                customerPrincipal.FindFirstValue("customerId"));
+            Assert.NotEqual(
+                customerUser.Id.ToString(),
+                customerPrincipal.FindFirstValue("customerId"));
 
             var configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
@@ -171,6 +203,11 @@ public sealed class OrganizerEventFlowIntegrationTests
 
             Assert.Single(customerEvents);
             Assert.Equal(published.Id, customerEvents[0].Id);
+
+            var cancelled = await eventService.CancelAsync(published.Id,
+                new CancelEventDto { Reason = "Integration cancellation" },
+                admin.Id, null, UserRole.Admin.ToString());
+            Assert.Equal("Cancelled", cancelled.Status);
         }
         finally
         {

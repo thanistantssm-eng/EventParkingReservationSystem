@@ -12,6 +12,11 @@ public sealed class CreateBookingDto
     [Range(1, int.MaxValue)]
     public int EventId { get; set; }
 
+    // Optional for older clients. A checkout must keep this value on retry and
+    // use a new value for a genuinely new order. Existing BookingNumber's
+    // unique index persists it, so no schema migration is needed.
+    public Guid? RequestId { get; set; }
+
     // Seat-based events require seats.
     // Non-seat-based events intentionally allow an empty list.
     public List<int> SeatIds { get; set; } = [];

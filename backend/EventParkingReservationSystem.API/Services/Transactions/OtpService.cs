@@ -48,23 +48,24 @@ public sealed class OtpService(
         var existing = await db.OtpVerifications
             .SingleOrDefaultAsync(x => x.PaymentId == paymentId, ct);
 
-        if (existing is not null)
-        {
-            db.OtpVerifications.Remove(existing);
-        }
-
         var code = RandomNumberGenerator
             .GetInt32(0, 1_000_000)
             .ToString("D6");
 
         var expires = DateTime.UtcNow.AddMinutes(5);
 
-        db.OtpVerifications.Add(new OtpVerification
+        var otp = existing ?? new OtpVerification
         {
-            PaymentId = paymentId,
-            CodeHash = Hash(code),
-            ExpiresAtUtc = expires
-        });
+            PaymentId = paymentId
+        };
+        otp.CodeHash = Hash(code);
+        otp.ExpiresAtUtc = expires;
+        otp.FailedAttempts = 0;
+        otp.VerifiedAtUtc = null;
+        if (existing is null)
+        {
+            db.OtpVerifications.Add(otp);
+        }
 
         await db.SaveChangesAsync(ct);
 
@@ -104,6 +105,15 @@ public sealed class OtpService(
                 "You can only verify an OTP for your own payment.");
         }
 
+        if (payment.Status == PaymentStatus.Completed &&
+            payment.Booking.Status == BookingStatus.Confirmed)
+        {
+            return await payments.GetForBookingAsync(
+                       payment.BookingId,
+                       ct)
+                   ?? throw new NotFoundException("Payment not found.");
+        }
+
         if (payment.Booking.Status != BookingStatus.PendingPayment ||
             payment.Status != PaymentStatus.PendingOtp)
         {
@@ -117,7 +127,9 @@ public sealed class OtpService(
 
         if (otp.VerifiedAtUtc.HasValue)
         {
-            throw new ConflictException("OTP has already been used.");
+            // Verification was saved but the response/finalization may have
+            // been interrupted. Completing again is safe and idempotent.
+            return await payments.CompleteAsync(request.PaymentId, ct);
         }
 
         if (otp.ExpiresAtUtc < DateTime.UtcNow)

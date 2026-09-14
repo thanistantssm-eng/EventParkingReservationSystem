@@ -31,9 +31,36 @@ public sealed class PaymentService(
     {
         await expiry.ExpireStalePendingBookingsAsync(ct);
 
+        return await ReservationExecution.InTransactionAsync(
+            db, () => StartCoreAsync(bookingId, request, ct), ct);
+    }
+
+    private async Task<PaymentDto> StartCoreAsync(
+        int bookingId, PaymentRequestDto request, CancellationToken ct)
+    {
+
         var booking = await db.Bookings
+            .FromSqlInterpolated($"SELECT * FROM [Bookings] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {bookingId}")
             .SingleOrDefaultAsync(x => x.Id == bookingId, ct)
             ?? throw new NotFoundException("Booking not found.");
+
+        var existingPayment = await db.Payments
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.BookingId == bookingId, ct);
+
+        if (existingPayment is not null)
+        {
+            if ((existingPayment.Status == PaymentStatus.PendingOtp &&
+                 booking.Status == BookingStatus.PendingPayment) ||
+                (existingPayment.Status == PaymentStatus.Completed &&
+                 booking.Status == BookingStatus.Confirmed))
+            {
+                return Map(existingPayment);
+            }
+
+            throw new ConflictException(
+                "The existing payment for this booking is no longer active.");
+        }
 
         if (booking.Status != BookingStatus.PendingPayment)
         {
@@ -41,12 +68,7 @@ public sealed class PaymentService(
                 "Payment can only be started for an active pending-payment booking.");
         }
 
-        if (await db.Payments.AnyAsync(x => x.BookingId == bookingId, ct))
-        {
-            throw new ConflictException("Payment already exists for this booking.");
-        }
-
-        var method = request.Method.Trim();
+        var method = request.Method?.Trim();
         if (string.IsNullOrWhiteSpace(method))
         {
             throw new ValidationException("Payment method is required.");
@@ -72,6 +94,14 @@ public sealed class PaymentService(
     {
         await expiry.ExpireStalePendingBookingsAsync(ct);
 
+        return await ReservationExecution.InTransactionAsync(
+            db, () => CompleteCoreAsync(paymentId, ct), ct);
+    }
+
+    private async Task<PaymentDto> CompleteCoreAsync(int paymentId, CancellationToken ct)
+    {
+        await LockBookingForPaymentAsync(paymentId, ct);
+
         var payment = await db.Payments
             .Include(x => x.Booking)
             .ThenInclude(x => x.QrCode)
@@ -80,7 +110,13 @@ public sealed class PaymentService(
 
         if (payment.Status == PaymentStatus.Completed)
         {
-            throw new ConflictException("Payment is already completed.");
+            if (payment.Booking.Status == BookingStatus.Confirmed)
+            {
+                return Map(payment);
+            }
+
+            throw new ConflictException(
+                "Payment is completed but the booking state is inconsistent. Please contact support.");
         }
 
         if (payment.Status != PaymentStatus.PendingOtp ||
@@ -88,6 +124,12 @@ public sealed class PaymentService(
         {
             throw new ConflictException(
                 "This payment is no longer active or the booking has expired/cancelled.");
+        }
+
+        if (!await db.OtpVerifications.AnyAsync(
+                x => x.PaymentId == paymentId && x.VerifiedAtUtc != null, ct))
+        {
+            throw new ValidationException("Payment must be authorized with a verified OTP.");
         }
 
         payment.Status = PaymentStatus.Completed;
@@ -125,6 +167,13 @@ public sealed class PaymentService(
         int paymentId,
         CancellationToken ct)
     {
+        return await ReservationExecution.InTransactionAsync(
+            db, () => RefundCoreAsync(paymentId, ct), ct);
+    }
+
+    private async Task<PaymentDto> RefundCoreAsync(int paymentId, CancellationToken ct)
+    {
+        await LockBookingForPaymentAsync(paymentId, ct);
         var payment = await db.Payments
             .Include(x => x.Booking)
                 .ThenInclude(x => x.Seats)
@@ -137,7 +186,7 @@ public sealed class PaymentService(
 
         if (payment.Status == PaymentStatus.Refunded)
         {
-            throw new ConflictException("Payment is already refunded.");
+            return Map(payment);
         }
 
         if (payment.Status != PaymentStatus.Completed)
@@ -227,6 +276,19 @@ public sealed class PaymentService(
             p.Method,
             p.TransactionReference,
             p.CompletedAtUtc!.Value);
+    }
+
+    private async Task LockBookingForPaymentAsync(int paymentId, CancellationToken ct)
+    {
+        var bookingId = await db.Payments.AsNoTracking()
+            .Where(x => x.Id == paymentId)
+            .Select(x => (int?)x.BookingId)
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("Payment not found.");
+
+        await db.Bookings
+            .FromSqlInterpolated($"SELECT * FROM [Bookings] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {bookingId}")
+            .SingleAsync(ct);
     }
 
     private static PaymentDto Map(Payment p) =>

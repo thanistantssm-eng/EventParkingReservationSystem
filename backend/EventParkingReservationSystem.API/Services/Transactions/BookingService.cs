@@ -17,6 +17,24 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
     {
         await expiry.ExpireStalePendingBookingsAsync(ct);
 
+        return await ReservationExecution.RunAsync(
+            db,
+            () => CreateCoreAsync(request, ct));
+    }
+
+    private async Task<BookingDto> CreateCoreAsync(
+        CreateBookingDto request,
+        CancellationToken ct)
+    {
+        if (request.Quantity is < 1 or > 20 ||
+            string.IsNullOrWhiteSpace(request.TicketType) ||
+            request.SeatIds is null ||
+            request.SeatIds.Any(id => id <= 0) ||
+            request.RequestId == Guid.Empty)
+        {
+            throw new ValidationException("Valid ticket quantity, ticket type and seat identifiers are required.");
+        }
+
         if (request.SeatIds.Count !=
             request.SeatIds.Distinct().Count())
         {
@@ -39,6 +57,7 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
         }
 
         var eventInfo = await db.Events
+            .FromSqlInterpolated($"SELECT * FROM [Events] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {request.EventId}")
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 x => x.Id == request.EventId,
@@ -77,6 +96,20 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
                 "A valid active ticket type is required for a non-seat-based event.");
         }
 
+        // A checkout spans booking, payment and OTP requests. If the client
+        // loses a response and retries, resume its own identical pending hold
+        // instead of reporting its seats/parking as a competing reservation.
+        var retryBooking = await FindMatchingPendingBookingAsync(
+            request,
+            requestedTicketName,
+            ct);
+
+        if (retryBooking is not null)
+        {
+            await tx.CommitAsync(ct);
+            return Map(retryBooking);
+        }
+
         var seats = await ValidateSeatsAsync(
             eventInfo,
             request,
@@ -112,7 +145,9 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
         var booking = new Booking
         {
             BookingNumber =
-                $"BKG-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
+                request.RequestId.HasValue
+                    ? RequestBookingNumber(request.CustomerId, request.RequestId.Value)
+                    : $"BKG-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
 
             CustomerId = request.CustomerId,
             EventId = request.EventId,
@@ -166,19 +201,44 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ReservationExecution.IsUniqueViolation(ex))
         {
             await tx.RollbackAsync(ct);
             db.ChangeTracker.Clear();
 
-            if (request.ParkingSlotId.HasValue)
+            // Two identical requests can arrive before either sees the other.
+            // The unique inventory indexes choose one winner; return that
+            // customer's winning booking for an idempotent retry.
+            retryBooking = await FindMatchingPendingBookingAsync(
+                request,
+                requestedTicketName,
+                ct);
+
+            if (retryBooking is not null)
+            {
+                return Map(retryBooking);
+            }
+
+            var databaseMessage = ex.GetBaseException().Message;
+
+            if (databaseMessage.Contains(
+                    "IX_BookingParkings_ParkingSlotId",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 throw new ConflictException(
                     "The selected parking slot is no longer available. Please choose another slot.");
             }
 
+            if (databaseMessage.Contains(
+                    "IX_BookingSeats_SeatId",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ConflictException(
+                    "One or more selected seats are no longer available. Please refresh and choose again.");
+            }
+
             throw new ConflictException(
-                "One or more selected seats are no longer available. Please refresh and choose again.");
+                "The reservation changed while it was being saved. Please refresh availability and try again.");
         }
 
         return await GetAsync(
@@ -382,12 +442,25 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
     {
         await expiry.ExpireStalePendingBookingsAsync(ct);
 
+        return await ReservationExecution.RunAsync(
+            db,
+            () => AttachParkingCoreAsync(id, customerId, request, ct));
+    }
+
+    private async Task<BookingDto> AttachParkingCoreAsync(
+        int id,
+        int customerId,
+        ReserveParkingDto request,
+        CancellationToken ct)
+    {
+
         await using var tx =
             await db.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
                 ct);
 
         var booking = await db.Bookings
+            .FromSqlInterpolated($"SELECT * FROM [Bookings] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {id}")
             .Include(x => x.Parking)
             .Include(x => x.Payment)
             .SingleOrDefaultAsync(
@@ -417,6 +490,12 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
 
         if (booking.Parking is not null)
         {
+            if (booking.Parking.ParkingSlotId == request.ParkingSlotId)
+            {
+                await tx.CommitAsync(ct);
+                return await GetAsync(id, ct);
+            }
+
             throw new ConflictException(
                 "This booking already has a parking reservation.");
         }
@@ -445,7 +524,7 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ReservationExecution.IsUniqueViolation(ex))
         {
             await tx.RollbackAsync(ct);
             db.ChangeTracker.Clear();
@@ -463,12 +542,26 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
     {
         await expiry.ExpireStalePendingBookingsAsync(ct);
 
+        await ReservationExecution.RunAsync(db, async () =>
+        {
+            await RemoveParkingCoreAsync(id, customerId, ct);
+            return true;
+        });
+    }
+
+    private async Task RemoveParkingCoreAsync(
+        int id,
+        int customerId,
+        CancellationToken ct)
+    {
+
         await using var tx =
             await db.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
                 ct);
 
         var booking = await db.Bookings
+            .FromSqlInterpolated($"SELECT * FROM [Bookings] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {id}")
             .Include(x => x.Parking)
             .Include(x => x.Payment)
             .SingleOrDefaultAsync(
@@ -498,8 +591,8 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
 
         if (booking.Parking is null)
         {
-            throw new NotFoundException(
-                "This booking does not have a parking reservation.");
+            await tx.CommitAsync(ct);
+            return;
         }
 
         var parkingFee = booking.Parking.Fee;
@@ -517,12 +610,26 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
     {
         await expiry.ExpireStalePendingBookingsAsync(ct);
 
+        await ReservationExecution.RunAsync(db, async () =>
+        {
+            await CancelCoreAsync(id, customerId, ct);
+            return true;
+        });
+    }
+
+    private async Task CancelCoreAsync(
+        int id,
+        int customerId,
+        CancellationToken ct)
+    {
+
         await using var tx =
             await db.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
                 ct);
 
         var booking = await db.Bookings
+            .FromSqlInterpolated($"SELECT * FROM [Bookings] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {id}")
             .Include(x => x.Seats)
             .Include(x => x.Parking)
             .Include(x => x.Payment)
@@ -541,8 +648,8 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
 
         if (booking.Status == BookingStatus.Cancelled)
         {
-            throw new ConflictException(
-                "Booking is already cancelled or expired.");
+            await tx.CommitAsync(ct);
+            return;
         }
 
         if (booking.Payment?.Status == PaymentStatus.Completed)
@@ -662,6 +769,90 @@ public sealed class BookingService(AppDbContext db, IBookingExpiryService expiry
 
         return seats;
     }
+
+    private async Task<Booking?> FindMatchingPendingBookingAsync(
+        CreateBookingDto request,
+        string ticketType,
+        CancellationToken ct)
+    {
+        var seatIds = request.SeatIds
+            .Distinct()
+            .ToList();
+
+        if (request.RequestId.HasValue)
+        {
+            var bookingNumber = RequestBookingNumber(
+                request.CustomerId,
+                request.RequestId.Value);
+            var existing = await Query()
+                .SingleOrDefaultAsync(x =>
+                    x.CustomerId == request.CustomerId &&
+                    x.BookingNumber == bookingNumber,
+                    ct);
+
+            if (existing is null)
+            {
+                return null;
+            }
+
+            if (existing.Status == BookingStatus.Cancelled)
+            {
+                throw new ConflictException(
+                    "This checkout has expired or been cancelled. Start a new reservation.");
+            }
+
+            if (existing.EventId != request.EventId ||
+                existing.Tickets.Count != 1 ||
+                !existing.Tickets.Any(ticket =>
+                    string.Equals(ticket.TicketType, ticketType, StringComparison.OrdinalIgnoreCase) &&
+                    ticket.Quantity == request.Quantity) ||
+                !existing.Seats.Select(seat => seat.SeatId).ToHashSet().SetEquals(seatIds) ||
+                existing.Parking?.ParkingSlotId != request.ParkingSlotId)
+            {
+                throw new ConflictException(
+                    "This checkout identifier was already used with different reservation details.");
+            }
+
+            return existing;
+        }
+
+        // Compatibility for old clients: only resume an exact, exclusive
+        // seat/parking hold. General-admission orders without identifiers must
+        // not collapse separate legitimate purchases into the same booking.
+        if (seatIds.Count == 0 && !request.ParkingSlotId.HasValue)
+        {
+            return null;
+        }
+
+        var query = Query()
+            .Where(x =>
+                x.CustomerId == request.CustomerId &&
+                x.EventId == request.EventId &&
+                x.Status == BookingStatus.PendingPayment &&
+                x.Tickets.Count == 1 &&
+                x.Tickets.Any(ticket =>
+                    ticket.TicketType == ticketType &&
+                    ticket.Quantity == request.Quantity));
+
+        query = seatIds.Count == 0
+            ? query.Where(x => !x.Seats.Any())
+            : query.Where(x =>
+                x.Seats.Count == seatIds.Count &&
+                x.Seats.All(seat => seatIds.Contains(seat.SeatId)));
+
+        query = request.ParkingSlotId.HasValue
+            ? query.Where(x =>
+                x.Parking != null &&
+                x.Parking.ParkingSlotId == request.ParkingSlotId.Value)
+            : query.Where(x => x.Parking == null);
+
+        return await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static string RequestBookingNumber(int customerId, Guid requestId) =>
+        $"BKG-{customerId}-{requestId:N}".ToUpperInvariant();
 
     private async Task ValidateTicketCapacityAsync(
         Event eventInfo,

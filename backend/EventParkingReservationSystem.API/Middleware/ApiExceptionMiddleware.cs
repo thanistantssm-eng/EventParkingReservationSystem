@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace EventParkingReservationSystem.API.Middleware;
 
@@ -29,6 +30,12 @@ public sealed class ApiExceptionMiddleware(
         {
             await WriteProblem(context, 400, ex.Message);
         }
+        catch (InvalidOperationException ex) when (
+            ex.Message.Contains("execution strategy", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogError(ex, "Database execution strategy configuration error");
+            await WriteProblem(context, 500, "The reservation service encountered a database configuration error.");
+        }
         catch (InvalidOperationException ex)
         {
             await WriteProblem(context, 409, ex.Message);
@@ -39,10 +46,19 @@ public sealed class ApiExceptionMiddleware(
                 ex,
                 "Database constraint rejected the request");
 
-            await WriteProblem(
-                context,
-                409,
-                "The request conflicts with existing database data.");
+            var sql = ex.GetBaseException() as SqlException;
+            if (sql?.Number is 2601 or 2627)
+            {
+                await WriteProblem(context, 409, "The request conflicts with existing database data.");
+            }
+            else if (sql?.Number == 547)
+            {
+                await WriteProblem(context, 400, "A referenced reservation record is invalid or cannot be changed.");
+            }
+            else
+            {
+                await WriteProblem(context, 500, "The reservation could not be saved. Please try again.");
+            }
         }
         catch (Exception ex)
         {
